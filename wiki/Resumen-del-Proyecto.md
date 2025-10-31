@@ -1,14 +1,12 @@
-# 🏥 Hospital Management System
+# 🏥 Resumen del Proyecto - Hospital Management System
 
 **Aplicación Web Progresiva (PWA) para Gestión Clínica y Administrativa**
 
 ---
 
-## 📌 Resumen
+## 📌 Descripción General
 
-Solución digital para optimizar procesos administrativos y clínicos del **Hospital Militar Tipo I "Dr. José María Vargas"**.
-
-Objetivo: Digitalizar flujos de atención, reducir tiempos de espera y mejorar la coordinación entre especialidades.
+Este proyecto consiste en desarrollar una solución digital para optimizar procesos administrativos y clínicos del **Hospital Militar Tipo I "Dr. José María Vargas"**. El objetivo es digitalizar flujos de atención, reducir tiempos de espera y mejorar la coordinación entre especialidades.
 
 ---
 
@@ -67,39 +65,14 @@ Objetivo: Digitalizar flujos de atención, reducir tiempos de espera y mejorar l
 ## 📂 Estructura del Proyecto
 
 ```
-hospital-management/
-├── frontend/          # PWA React
-├── backend/           # API Express
-├── docs/              # Documentación
-├── docker-compose.yml # Orquestación
-└── README.md          # Setup y guía rápida
+hospital-management-dev/
+├── hospital-management-system/  # Código fuente principal
+│   ├── frontend/               # PWA React
+│   ├── backend/                # API Express
+│   └── docker-compose.yml      # Orquestación
+├── wiki/                       # Documentación organizada
+└── README_ORGANIZACION.md      # Guía principal
 ```
-
----
-
-## 🚀 Inicio Rápido
-
-```bash
-# Clonar repositorio
-git clone https://github.com/hospital-management-org/hospital-management.git
-
-# Configurar ambiente
-cd hospital-management
-docker-compose up
-
-# La aplicación estará disponible en: http://localhost:3000
-```
-
-Ver [README.md](./hospital-management/README.md) para instrucciones detalladas.
-
----
-
-## 📖 Documentación
-
-- 📋 [Guía del Proyecto](./hospital-management/README.md)
-- 🔧 [Setup Inicial](./hospital-management/SETUP_INICIAL.md)
-- 👥 [Asignación de Roles](./hospital-management/ASIGNACION_TRABAJO.md)
-- 🤝 [Guía de Contribución](./hospital-management/CONTRIBUTING.md)
 
 ---
 
@@ -129,13 +102,15 @@ Ver [README.md](./hospital-management/README.md) para instrucciones detalladas.
 
 ---
 
-## 📄 Licencia
+## 📄 Más Información
 
-Proyecto académico de Servicio Comunitario - Universidad Nacional Experimental Rómulo Gallegos
+Para información detallada, consulta:
+- [Guía del Proyecto](Guia-del-Proyecto.md)
+- [Índice General](Indice.md)
+- [README Principal](../README_ORGANIZACION.md)
 
 ---
 
-**Estado**: 🟢 En Desarrollo  
+**Estado**: �� En Desarrollo  
 **Última actualización**: 31 de Octubre, 2025  
 **Próximo hito**: Kickoff - 1 de Noviembre, 2025
-
