@@ -11,10 +11,29 @@
 ```
 /workspaces/codespaces-blank/
 │
-├── idea.txt                          # Tu carta original del proyecto
-├── GUIA_PROYECTO.md                  # 📌 Guía completa (LEE PRIMERO)
-├── LIDERAZGO_EQUIPO.md               # 📌 Manual de liderazgo (LEE SEGUNDO)
-├── RESUMEN_FINAL.md                  # Resumen de lo completado hoy
+├── 📌 DOCUMENTOS PRINCIPALES
+│   ├── GUIA_PROYECTO.md              # 📌 Guía completa del proyecto
+│   ├── LIDERAZGO_EQUIPO.md           # 📌 Manual de liderazgo
+│   ├── ACCIONES_INMEDIATAS_KICKOFF.md  # ⚡ 3 acciones antes del kickoff
+│   └── RESUMEN_FINAL.md              # Resumen de Fase 0
+│
+├── 🔐 PROTECCIONES DE RAMA (RULESETS)
+│   ├── GUIA_PROTEGER_LEADS_ONLY_RULESETS.md  # 🚀 Paso a paso (ESENCIAL)
+│   ├── FAQ_RULESETS.md                      # ❓ Q&A rápidas (ESENCIAL)
+│   ├── BRANCH_PROTECTION_SETUP.md           # 📖 Referencia técnica
+│   └── CAMBIAR_ROL_COLABORADORES_GITHUB.md  # Dónde se movió la opción
+│
+├── 📚 WIKI Y LIMPIEZA DE REPOSITORIO
+│   ├── RESUMEN_EJECUTIVO_WIKI_Y_REPO.md     # ⚡ Resumen 2 tareas finales
+│   ├── GUIA_LLENAR_WIKI_Y_LIMPIAR_REPO.md   # 📖 Guía completa (LEER)
+│   ├── TUTORIAL_VISUAL_CREAR_WIKI.md        # 👁️ Imágenes conceptuales
+│   └── limpiar_repo.sh                      # 🔧 Script automático
+│
+├── 🔐 PROTECCIONES DE RAMA (RULESETS)
+│   ├── GUIA_PROTEGER_LEADS_ONLY_RULESETS.md  # 🚀 Paso a paso (ESENCIAL)
+│   ├── FAQ_RULESETS.md                      # ❓ Q&A rápidas (ESENCIAL)
+│   └── BRANCH_PROTECTION_SETUP.md           # 📖 Referencia técnica (ESENCIAL)
+│   └─ Nota: Para documentación → Usar Wiki del repo (ver abajo)
 │
 └── hospital-management-system/       # 🎯 EL PROYECTO
     │
