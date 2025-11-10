@@ -1,0 +1,257 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// PACIENTES - Información básica del paciente
+// ============================================
+model Paciente {
+  id                    BigInt   @id @default(autoincrement())
+  nroHistoria           String   @unique @db.VarChar(50)
+  apellidosNombres      String   @db.VarChar(200)
+  ci                    String   @unique @db.VarChar(50)
+  fechaNacimiento       DateTime? @db.Date
+  sexo                  String?  @db.VarChar(3) // CHECK: M, F
+  nacionalidad          String?  @db.VarChar(100)
+  direccion             String?  @db.VarChar(300)
+  telefono              String?  @db.VarChar(50)
+  lugarNacimiento       String?  @db.VarChar(200)
+  estado                String?  @db.VarChar(100)
+  region                String?  @db.VarChar(100)
+  createdAt             DateTime  @default(now()) @db.Timestamptz()
+  updatedAt             DateTime  @updatedAt @db.Timestamptz()
+
+  // Relaciones
+  personalMilitar       PersonalMilitar?
+  admisiones            Admision[]
+  encuentros            Encuentro[]
+  antecedentes          Antecedente[]
+
+  @@index([ci])
+  @@index([nroHistoria])
+}
+
+// ============================================
+// PERSONAL MILITAR - Info militar del paciente
+// ============================================
+model PersonalMilitar {
+  id              BigInt  @id @default(autoincrement())
+  pacienteId      BigInt  @unique
+  grado           String? @db.VarChar(50)
+  componente      String? @db.VarChar(100)
+  unidad          String? @db.VarChar(200)
+
+  // Relaciones
+  paciente        Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// USUARIOS - Médicos y administrativos
+// ============================================
+model Usuario {
+  id        BigInt   @id @default(autoincrement())
+  nombre    String   @db.VarChar(200)
+  ci        String?  @db.VarChar(50)
+  cargo     String?  @db.VarChar(100)
+  email     String?  @db.VarChar(200)
+  role      String?  @db.VarChar(50) // MEDICO, ENFERMERO, ADMIN, etc
+  createdAt DateTime @default(now()) @db.Timestamptz()
+
+  // Relaciones
+  admisiones        Admision[]
+  encuentros        Encuentro[]
+  auditorias        AuditLog[]
+}
+
+// ============================================
+// ADMISION - Registro de admisión inicial
+// ============================================
+model Admision {
+  id              BigInt   @id @default(autoincrement())
+  pacienteId      BigInt
+  fechaAdmision   DateTime @db.Date
+  horaAdmision    DateTime? @db.Time
+  formaIngreso    String?  @db.VarChar(20) // CHECK: AMBULANTE, AMBULANCIA
+  habitacion      String?  @db.VarChar(50)
+  firmaFacultativo String? @db.VarChar(200)
+  estadoAdmision  String?  @db.VarChar(50)
+  createdById     BigInt?
+  createdAt       DateTime @default(now()) @db.Timestamptz()
+  updatedAt       DateTime @updatedAt @db.Timestamptz()
+
+  // Relaciones
+  paciente              Paciente @relation(fields: [pacienteId], references: [id])
+  createdBy             Usuario? @relation(fields: [createdById], references: [id])
+  estanciaHospitalaria  EstanciaHospitalaria?
+  encuentros            Encuentro[]
+
+  @@index([pacienteId])
+  @@index([fechaAdmision])
+}
+
+// ============================================
+// ESTANCIA HOSPITALARIA - Alta y cálculo días
+// ============================================
+model EstanciaHospitalaria {
+  id                    BigInt   @id @default(autoincrement())
+  admisionId            BigInt   @unique
+  fechaAlta             DateTime? @db.Date
+  diasHosp              Int?
+  diagnosticoIngresoId  BigInt?
+  diagnosticoEgresoId   BigInt?
+  notas                 String?  @db.Text
+  updatedAt             DateTime @updatedAt @db.Timestamptz()
+
+  // Relaciones
+  admision              Admision @relation(fields: [admisionId], references: [id], onDelete: Cascade)
+  diagnosticoIngreso    Diagnostico? @relation("ingreso", fields: [diagnosticoIngresoId], references: [id])
+  diagnosticoEgreso     Diagnostico? @relation("egreso", fields: [diagnosticoEgresoId], references: [id])
+}
+
+// ============================================
+// DIAGNOSTICOS - Catálogo de diagnósticos CIE
+// ============================================
+model Diagnostico {
+  id           BigInt   @id @default(autoincrement())
+  codigoCie    String?  @db.VarChar(20)
+  descripcion  String   @db.VarChar(500)
+  tipo         String?  @db.VarChar(20)
+  createdAt    DateTime @default(now()) @db.Timestamptz()
+
+  // Relaciones
+  estanciaIngresos      EstanciaHospitalaria[] @relation("ingreso")
+  estanciaEgresos       EstanciaHospitalaria[] @relation("egreso")
+
+  @@index([codigoCie])
+}
+
+// ============================================
+// ENCUENTROS - Visitas/atenciones (emergencia, hospitalización, consulta)
+// ============================================
+model Encuentro {
+  id              BigInt   @id @default(autoincrement())
+  pacienteId      BigInt
+  admisionId      BigInt?
+  tipo            String   @db.VarChar(30) // CHECK: EMERGENCIA, HOSPITALIZACION, CONSULTA, OTRO
+  fecha           DateTime @db.Date
+  hora            DateTime? @db.Time
+  motivoConsulta  String?  @db.VarChar(1000)
+  enfermedadActual String? @db.Text
+  procedencia     String?  @db.VarChar(200)
+  nroCama         String?  @db.VarChar(50)
+  createdById     BigInt?
+  createdAt       DateTime @default(now()) @db.Timestamptz()
+  updatedAt       DateTime @updatedAt @db.Timestamptz()
+
+  // Relaciones
+  paciente              Paciente @relation(fields: [pacienteId], references: [id])
+  admision              Admision? @relation(fields: [admisionId], references: [id])
+  createdBy             Usuario? @relation(fields: [createdById], references: [id])
+  signosVitales         SignosVitales[]
+  examenRegional        ExamenRegional?
+  impresiones           ImpresionDiagnostica[]
+
+  @@index([pacienteId, fecha])
+}
+
+// ============================================
+// SIGNOS VITALES - Presión, pulso, temperatura, etc
+// ============================================
+model SignosVitales {
+  id              BigInt   @id @default(autoincrement())
+  encuentroId     BigInt
+  taSistolica     Int?
+  taDiastolica    Int?
+  pulso           Int?
+  temperatura     Decimal? @db.Decimal(4, 2)
+  fr              Int?     // Frecuencia respiratoria
+  observaciones   String?  @db.VarChar(500)
+  registradoEn    DateTime @default(now()) @db.Timestamptz()
+
+  // Relaciones
+  encuentro       Encuentro @relation(fields: [encuentroId], references: [id], onDelete: Cascade)
+
+  @@index([encuentroId])
+}
+
+// ============================================
+// EXAMEN REGIONAL - Examen físico por regiones
+// ============================================
+model ExamenRegional {
+  id          BigInt   @id @default(autoincrement())
+  encuentroId BigInt   @unique
+  piel        String?  @db.Text
+  cabeza      String?  @db.Text
+  cuello      String?  @db.Text
+  torax       String?  @db.Text
+  pulmones    String?  @db.Text
+  corazon     String?  @db.Text
+  abdomen     String?  @db.Text
+  anoRecto    String?  @db.Text
+  genitales   String?  @db.Text
+
+  // Relaciones
+  encuentro   Encuentro @relation(fields: [encuentroId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// ANTECEDENTES - Historial personal/familiar
+// ============================================
+model Antecedente {
+  id           BigInt   @id @default(autoincrement())
+  pacienteId   BigInt
+  tipo         String   @db.VarChar(20) // CHECK: PERSONAL, FAMILIAR, OTRO
+  descripcion  String   @db.Text
+  registradoEn DateTime @default(now()) @db.Timestamptz()
+
+  // Relaciones
+  paciente     Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@index([pacienteId])
+}
+
+// ============================================
+// IMPRESIONES DIAGNOSTICAS - Diagnósticos del encuentro
+// ============================================
+model ImpresionDiagnostica {
+  id           BigInt   @id @default(autoincrement())
+  encuentroId  BigInt
+  codigoCie    String?  @db.VarChar(20)
+  descripcion  String?  @db.Text
+  clase        String   @default("PRESUNTIVO") @db.VarChar(20) // CHECK: PRESUNTIVO, CONFIRMADO
+  createdAt    DateTime @default(now()) @db.Timestamptz()
+
+  // Relaciones
+  encuentro    Encuentro @relation(fields: [encuentroId], references: [id], onDelete: Cascade)
+
+  @@index([codigoCie])
+  @@index([encuentroId])
+}
+
+// ============================================
+// AUDIT LOG - Cambios críticos y auditoría
+// ============================================
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  tabla       String   @db.VarChar(100)
+  registroId  BigInt?
+  usuarioId   BigInt?
+  accion      String   @db.VarChar(50) // CREATE, UPDATE, DELETE
+  detalle     Json?    // Campo JSONB para detalles
+  creadoEn    DateTime @default(now()) @db.Timestamptz()
+
+  // Relaciones
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([tabla])
+  @@index([usuarioId])
+}
+
