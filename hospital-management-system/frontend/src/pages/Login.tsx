@@ -4,6 +4,7 @@ import * as z from 'zod'
 import { useNavigate, Link } from 'react-router-dom'
 import FormInput from '@components/FormInput'
 import { authService } from '@services/auth'
+import { useAuth } from '@/contexts/AuthContext'
 import styles from './Login.module.css'
 
 const loginSchema = z.object({
@@ -21,6 +22,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 export default function Login() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const {
     register,
     handleSubmit,
@@ -43,9 +45,23 @@ export default function Login() {
       
       if (response.success && response.data?.token) {
         console.log('[Login] Token validated, saving to localStorage')
-        authService.setToken(response.data.token)
-        console.log('[Login] Token saved successfully, redirecting to home')
-        navigate('/')
+        
+        // Usar el método login del contexto
+        const userData = {
+          id: response.data.id,
+          email: response.data.email,
+          role: response.data.role,
+          nombre: response.data.nombre,
+        }
+        
+        login(userData, response.data.token)
+        
+        console.log('[Login] User data saved via context:', userData)
+        console.log('[Login] Redirecting to dashboard for role:', userData.role)
+        
+        // Redirigir al dashboard correspondiente según el rol
+        const dashboardPath = userData.role === 'ADMIN' ? '/dashboard/admin' : '/dashboard/medico'
+        navigate(dashboardPath)
       } else {
         const errorMsg = response.error || 'Respuesta inválida del servidor'
         console.error('[Login] Invalid response structure:', { response, errorMsg })

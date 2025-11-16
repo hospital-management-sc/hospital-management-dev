@@ -16,9 +16,6 @@ function getApiBaseUrl(): string {
     const hostname = window.location.hostname
     const protocol = window.location.protocol
     
-    console.log('[CONSTANTS] Detected hostname:', hostname)
-    console.log('[CONSTANTS] Detected protocol:', protocol)
-    
     // Si estamos en Codespace (app.github.dev)
     if (hostname.includes('app.github.dev')) {
       const apiHostname = hostname.replace('-5173.', '-3001.')

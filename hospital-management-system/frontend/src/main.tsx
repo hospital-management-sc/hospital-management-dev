@@ -8,7 +8,6 @@ import { setupDiagnosticsCommand } from './utils/diagnostics'
 // Make testAPI available in console for debugging
 if (typeof window !== 'undefined') {
   ;(window as any)._testAPI = testAPI
-  console.log('✅ Testing API available. Run: window._testAPI.runAllTests()')
   
   // Setup diagnostics
   setupDiagnosticsCommand()

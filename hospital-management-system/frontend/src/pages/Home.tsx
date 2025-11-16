@@ -1,39 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authService } from '@services/auth'
-import { apiService } from '@services/api'
+import { useAuth } from '@/contexts/AuthContext'
 import styles from './Home.module.css'
 
 export default function Home() {
   const navigate = useNavigate()
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, isAuthenticated, loading, logout } = useAuth()
 
   useEffect(() => {
-    const checkAuth = async () => {
-      if (!authService.isAuthenticated()) {
-        navigate('/login')
-        return
-      }
-
-      try {
-        const response = await apiService.get<any>('/auth/me')
-        console.log('User data:', response)
-        setUser((response as any).data)
-      } catch (error) {
-        console.error('Error fetching user:', error)
-        authService.logout()
-        navigate('/login')
-      } finally {
-        setLoading(false)
-      }
+    if (!loading && isAuthenticated && user) {
+      // Redirigir al dashboard correspondiente según el rol
+      const dashboardPath = user.role === 'ADMIN' ? '/dashboard/admin' : '/dashboard/medico'
+      console.log('[Home] User authenticated, redirecting to:', dashboardPath)
+      navigate(dashboardPath, { replace: true })
     }
-
-    checkAuth()
-  }, [navigate])
+  }, [loading, isAuthenticated, user, navigate])
 
   const handleLogout = () => {
-    authService.logout()
+    logout()
     navigate('/login')
   }
 

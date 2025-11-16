@@ -70,3 +70,15 @@ export interface AuthResponse {
   error?: string
   message?: string
 }
+
+/**
+ * JWT Payload - decodificado del token
+ */
+export interface JWTPayload {
+  id: number
+  email: string
+  nombre: string
+  role: string
+  iat?: number
+  exp?: number
+}

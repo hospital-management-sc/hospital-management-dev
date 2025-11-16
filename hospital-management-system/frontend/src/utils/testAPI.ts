@@ -79,7 +79,4 @@ export const testAPI = {
 // Hacer disponible en la consola
 if (typeof window !== 'undefined') {
   ;(window as any)._testAPI = testAPI
-  console.log(
-    '✅ Testing API available. Run: window._testAPI.runAllTests() in console'
-  )
 }

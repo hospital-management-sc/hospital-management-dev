@@ -4,9 +4,6 @@ interface RequestOptions extends RequestInit {
   headers?: Record<string, string>
 }
 
-// Log API configuration on module load
-console.log('[API] Service initialized with BASE_URL:', API_BASE_URL)
-
 async function request<T>(
   endpoint: string,
   options: RequestOptions = {}
