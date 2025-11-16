@@ -27,7 +27,7 @@ export default function Router() {
 
         {/* Main Routes */}
         <Route element={<MainLayout />}>
-          <Route index element={<Home />} />
+          <Route index element={<Navigate to="/login" replace />} />
           
           {/* Dashboard Médico - Para MEDICO, ENFERMERO, COORDINADOR */}
           <Route
