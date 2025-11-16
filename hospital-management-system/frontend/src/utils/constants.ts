@@ -6,8 +6,9 @@ export const APP_NAME = import.meta.env.VITE_APP_NAME || 'Hospital Management Sy
 
 // Detectar si estamos en Codespace y construir URLs correctamente
 function getApiBaseUrl(): string {
-  // Si hay variable de entorno explícita Y no estamos en Codespace, usarla
-  if (import.meta.env.VITE_API_URL && typeof window === 'undefined') {
+  // Si hay variable de entorno explícita, usarla primero
+  if (import.meta.env.VITE_API_URL) {
+    console.log('[CONSTANTS] Using VITE_API_URL:', import.meta.env.VITE_API_URL)
     return import.meta.env.VITE_API_URL
   }
 
@@ -24,10 +25,11 @@ function getApiBaseUrl(): string {
       return apiUrl
     }
     
-    // Si hay VITE_API_URL y es localhost, pero hostname NO es localhost, estamos probablemente en port forward
-    if (import.meta.env.VITE_API_URL && hostname === 'localhost') {
-      console.log('[CONSTANTS] Using VITE_API_URL for localhost:', import.meta.env.VITE_API_URL)
-      return import.meta.env.VITE_API_URL
+    // Si estamos en Vercel o producción, usar el backend de producción
+    if (hostname.includes('vercel.app') || hostname.includes('project-jmv')) {
+      const productionUrl = 'https://project-jmv.onrender.com/api'
+      console.log('[CONSTANTS] Production environment detected. API URL:', productionUrl)
+      return productionUrl
     }
   }
 
