@@ -2,38 +2,11 @@
  * User roles in the hospital management system
  */
 export const UserRole = {
-  ADMIN: 'admin',
-  DOCTOR: 'doctor',
-  COORDINATOR: 'coordinator',
-  STAFF: 'staff',
+  MEDICO: 'MEDICO', // Médicos y coordinadores de área
+  ADMIN: 'ADMIN', // Personal administrativo
 } as const
 
 export type UserRoleType = (typeof UserRole)[keyof typeof UserRole]
-
-/**
- * User types that can register
- */
-export const UserType = {
-  MEDICAL: 'medical', // Médicos y coordinadores
-  ADMINISTRATIVE: 'administrative', // Personal administrativo
-} as const
-
-export type UserTypeType = (typeof UserType)[keyof typeof UserType]
-
-/**
- * User interface
- */
-export interface User {
-  id: string
-  ci: string // Cédula de identidad
-  firstName: string
-  lastName: string
-  email: string
-  role: UserRoleType
-  type: UserTypeType
-  createdAt: string
-  updatedAt: string
-}
 
 /**
  * Login credentials
@@ -50,8 +23,8 @@ export interface RegisterData {
   nombre: string
   email: string
   password: string
-  ci?: string
-  role?: string
+  ci: string // Required: C.I. es un identificador único
+  role: string // Required: 'MEDICO' o 'ADMIN'
 }
 
 /**
@@ -81,4 +54,17 @@ export interface JWTPayload {
   role: string
   iat?: number
   exp?: number
+}
+
+/**
+ * User interface
+ */
+export interface User {
+  id: number
+  nombre: string
+  email: string
+  role: UserRoleType
+  ci?: string
+  createdAt?: string
+  updatedAt?: string
 }

@@ -2,7 +2,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useNavigate, Link } from 'react-router-dom'
+import { useState } from 'react'
 import FormInput from '@components/FormInput'
+import FormSelect from '@components/FormSelect'
+import PasswordToggle from '@components/PasswordToggle'
 import { authService } from '@services/auth'
 import styles from './Register.module.css'
 
@@ -13,10 +16,10 @@ const registerSchema = z
       .min(2, 'Nombre completo debe tener al menos 2 caracteres'),
     ci: z
       .string()
-      .optional()
-      .refine((val) => !val || val.length >= 5, {
-        message: 'C.I. debe tener al menos 5 caracteres',
-      }),
+      .regex(
+        /^[VEP]\d{7,9}$/,
+        'C.I. debe comenzar con V, E o P seguido de 7-9 dígitos (Ej: V12345678)'
+      ),
     email: z
       .string()
       .min(1, 'Email es requerido')
@@ -25,20 +28,19 @@ const registerSchema = z
       .string()
       .min(1, 'Contraseña es requerida')
       .min(6, 'Contraseña debe tener al menos 6 caracteres'),
-    confirmPassword: z
+    role: z
       .string()
-      .min(1, 'Confirma tu contraseña'),
-    role: z.string().optional(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Las contraseñas no coinciden',
-    path: ['confirmPassword'],
+      .min(1, 'Tipo de usuario es requerido')
+      .refine((val) => val === 'MEDICO' || val === 'ADMIN', {
+        message: 'Debe seleccionar un tipo de usuario válido',
+      }),
   })
 
 type RegisterFormData = z.infer<typeof registerSchema>
 
 export default function Register() {
   const navigate = useNavigate()
+  const [showPassword, setShowPassword] = useState(false)
   const {
     register,
     handleSubmit,
@@ -56,8 +58,8 @@ export default function Register() {
         nombre: data.nombre,
         email: data.email,
         password: data.password,
-        ci: data.ci || undefined,
-        role: data.role || 'USUARIO',
+        ci: data.ci,
+        role: data.role,
       })
       
       console.log('[Register] Response received:', response)
@@ -90,6 +92,18 @@ export default function Register() {
       <p className={styles.subtitle}>Crea tu cuenta en el sistema</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
+        <FormSelect
+          id="role"
+          label="Tipo de Usuario"
+          placeholder="Selecciona un tipo de usuario"
+          error={errors.role?.message}
+          options={[
+            { value: 'MEDICO', label: 'Médico / Coordinador de Área' },
+            { value: 'ADMIN', label: 'Personal Administrativo' },
+          ]}
+          {...register('role')}
+        />
+
         <FormInput
           id="nombre"
           label="Nombre Completo"
@@ -100,7 +114,7 @@ export default function Register() {
 
         <FormInput
           id="ci"
-          label="C.I. (Cédula de Identidad) - Opcional"
+          label="C.I. (Cédula de Identidad)"
           placeholder="Ej: V12345678"
           error={errors.ci?.message}
           {...register('ci')}
@@ -115,24 +129,16 @@ export default function Register() {
           {...register('email')}
         />
 
-        <div className={styles.twoColumn}>
+        <div style={{ position: 'relative' }}>
           <FormInput
             id="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             label="Contraseña"
             placeholder="Mín. 6 caracteres"
             error={errors.password?.message}
             {...register('password')}
           />
-
-          <FormInput
-            id="confirmPassword"
-            type="password"
-            label="Confirmar Contraseña"
-            placeholder="Repite tu contraseña"
-            error={errors.confirmPassword?.message}
-            {...register('confirmPassword')}
-          />
+          <PasswordToggle isVisible={showPassword} onChange={setShowPassword} />
         </div>
 
         <button

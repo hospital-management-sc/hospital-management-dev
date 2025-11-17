@@ -58,8 +58,8 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
     const { nombre, email, password, ci, role } = req.body;
 
     // Validation
-    if (!nombre || !email || !password) {
-      throw new ValidationError('Name, email, and password are required');
+    if (!nombre || !email || !password || !ci) {
+      throw new ValidationError('Name, email, C.I., and password are required');
     }
 
     // Call service

@@ -120,12 +120,24 @@ export const registerUser = async (payload: RegisterPayload): Promise<TokenRespo
   const { nombre, email, password, ci, role } = payload;
 
   // Validation
-  if (!nombre || !email || !password) {
-    throw new ValidationError('Name, email, and password are required');
+  if (!nombre || !email || !password || !ci) {
+    throw new ValidationError('Name, email, C.I., and password are required');
   }
 
   if (password.length < 6) {
     throw new ValidationError('Password must be at least 6 characters long');
+  }
+
+  // Validate role
+  const validRoles = ['MEDICO', 'ADMIN', 'USUARIO'];
+  if (role && !validRoles.includes(role)) {
+    throw new ValidationError('Invalid role. Must be one of: MEDICO, ADMIN');
+  }
+
+  // Validate C.I. format (Venezuelan ID: Letter V/E/P + 7-9 digits)
+  const ciRegex = /^[VEP]\d{7,9}$/;
+  if (!ciRegex.test(ci)) {
+    throw new ValidationError('Invalid C.I. format. Must start with V, E, or P followed by 7-9 digits (Example: V12345678)');
   }
 
   // Check if email already exists

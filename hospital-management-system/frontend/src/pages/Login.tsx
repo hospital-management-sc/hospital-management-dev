@@ -2,7 +2,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useNavigate, Link } from 'react-router-dom'
+import { useState } from 'react'
 import FormInput from '@components/FormInput'
+import PasswordToggle from '@components/PasswordToggle'
 import { authService } from '@services/auth'
 import { useAuth } from '@/contexts/AuthContext'
 import styles from './Login.module.css'
@@ -23,6 +25,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const [showPassword, setShowPassword] = useState(false)
   const {
     register,
     handleSubmit,
@@ -95,14 +98,17 @@ export default function Login() {
           {...register('email')}
         />
 
-        <FormInput
-          id="password"
-          type="password"
-          label="Contraseña"
-          placeholder="Tu contraseña"
-          error={errors.password?.message}
-          {...register('password')}
-        />
+        <div style={{ position: 'relative' }}>
+          <FormInput
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            label="Contraseña"
+            placeholder="Tu contraseña"
+            error={errors.password?.message}
+            {...register('password')}
+          />
+          <PasswordToggle isVisible={showPassword} onChange={setShowPassword} />
+        </div>
 
         <button
           type="submit"

@@ -20,19 +20,35 @@ export default function Router() {
       <Routes>
         {/* Auth Routes */}
         <Route element={<AuthLayout />}>
-          <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-          <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+          <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
         </Route>
 
         {/* Main Routes */}
         <Route element={<MainLayout />}>
-          <Route index element={<Navigate to="/login" replace />} />
+          <Route index element={user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
           
-          {/* Dashboard Médico - Para MEDICO, ENFERMERO, COORDINADOR */}
+          {/* Dashboard - Redirige según rol */}
+          <Route
+            path="/dashboard"
+            element={
+              user ? (
+                user.role === 'ADMIN' ? (
+                  <Navigate to="/dashboard/admin" replace />
+                ) : (
+                  <Navigate to="/dashboard/medico" replace />
+                )
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          
+          {/* Dashboard Médico - Para MEDICO */}
           <Route
             path="/dashboard/medico"
             element={
-              <ProtectedRoute allowedRoles={['MEDICO', 'ENFERMERO', 'COORDINADOR']}>
+              <ProtectedRoute allowedRoles={['MEDICO']}>
                 <DoctorDashboard />
               </ProtectedRoute>
             }
@@ -48,22 +64,6 @@ export default function Router() {
             }
           />
         </Route>
-
-        {/* Ruta por defecto - redirigir según rol */}
-        <Route
-          path="/dashboard"
-          element={
-            user ? (
-              user.role === 'ADMIN' ? (
-                <Navigate to="/dashboard/admin" replace />
-              ) : (
-                <Navigate to="/dashboard/medico" replace />
-              )
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
       </Routes>
     </BrowserRouter>
   )
