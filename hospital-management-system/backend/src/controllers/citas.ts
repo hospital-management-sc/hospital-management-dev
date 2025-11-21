@@ -3,10 +3,14 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-// Función auxiliar para convertir BigInt a string
+// Función auxiliar para convertir BigInt a string y formatear fechas/horas
 function convertBigIntToString(obj: any): any {
   if (obj === null || obj === undefined) return obj
   if (typeof obj === 'bigint') return obj.toString()
+  if (obj instanceof Date) {
+    // Devolver en formato ISO para que el frontend lo maneje
+    return obj.toISOString()
+  }
   if (Array.isArray(obj)) return obj.map(item => convertBigIntToString(item))
   if (typeof obj === 'object') {
     const converted: any = {}
@@ -70,8 +74,8 @@ export const crearCita = async (req: Request, res: Response): Promise<void> => {
       data: {
         pacienteId: BigInt(pacienteId),
         medicoId: medicoId ? BigInt(medicoId) : null,
-        fechaCita: new Date(fechaCita),
-        horaCita: horaCita ? new Date(`1970-01-01T${horaCita}:00`) : null,
+        fechaCita: new Date(fechaCita), // PostgreSQL Date type
+        horaCita: horaCita ? new Date(`1970-01-01T${horaCita}`) : null, // PostgreSQL Time type
         especialidad,
         motivo: motivo || null,
         notas: notas || null,

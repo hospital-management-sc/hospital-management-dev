@@ -720,7 +720,8 @@ function RegisterPatientForm() {
 
 // Componente para crear cita médica
 function CreateAppointmentForm() {
-  const [searchCI, setSearchCI] = useState('')
+  const [searchCITipo, setSearchCITipo] = useState('V')
+  const [searchCINumeros, setSearchCINumeros] = useState('')
   const [selectedPatient, setSelectedPatient] = useState<any>(null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
@@ -748,14 +749,21 @@ function CreateAppointmentForm() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitMessage, setSubmitMessage] = useState('')
 
+  const handleSearchCINumerosChange = (value: string) => {
+    // Solo permitir dígitos, extraer solo los números del paste
+    const soloNumeros = value.replace(/\D/g, '').slice(0, 8)
+    setSearchCINumeros(soloNumeros)
+    setSearchError('')
+  }
+
   // Cargar especialidades al montar el componente
   useEffect(() => {
-    console.log('CreateAppointmentForm montado, cargando especialidades')
     cargarEspecialidades()
   }, [])
 
   // Cargar especialidades al montar
   const cargarEspecialidades = async () => {
+    // Siempre usar las especialidades por defecto
     const especialidadesDefecto = [
       'Medicina General',
       'Cardiología',
@@ -766,32 +774,11 @@ function CreateAppointmentForm() {
       'Neurología',
       'Oftalmología',
     ]
-
-    try {
-      const apiBaseUrl = window.location.hostname.includes('app.github.dev')
-        ? window.location.origin.replace('-5173.', '-3001.')
-        : 'http://localhost:3001'
-
-      const response = await fetch(`${apiBaseUrl}/api/citas/info/especialidades`)
-      const result = await response.json()
-
-      console.log('Respuesta de especialidades:', result)
-
-      if (result.success && result.data && result.data.length > 0) {
-        console.log('Usando especialidades de API:', result.data)
-        setEspecialidades(result.data)
-      } else {
-        console.log('Usando especialidades por defecto')
-        setEspecialidades(especialidadesDefecto)
-      }
-    } catch (error) {
-      console.error('Error cargando especialidades:', error)
-      setEspecialidades(especialidadesDefecto)
-    }
+    setEspecialidades(especialidadesDefecto)
   }
 
   const handleSearchPatient = async () => {
-    if (!searchCI.trim()) {
+    if (!searchCINumeros.trim()) {
       setSearchError('Por favor ingrese un CI')
       return
     }
@@ -806,7 +793,8 @@ function CreateAppointmentForm() {
         ? window.location.origin.replace('-5173.', '-3001.')
         : 'http://localhost:3001'
 
-      const response = await fetch(`${apiBaseUrl}/api/pacientes/search?ci=${encodeURIComponent(searchCI)}`)
+      const ciCompleta = `${searchCITipo}-${searchCINumeros}`
+      const response = await fetch(`${apiBaseUrl}/api/pacientes/search?ci=${encodeURIComponent(ciCompleta)}`)
       const result = await response.json()
 
       if (!response.ok) {
@@ -923,19 +911,37 @@ function CreateAppointmentForm() {
       <div className="search-patient-box" style={{ marginBottom: '2rem' }}>
         <h3 style={{ marginBottom: '1rem' }}>1. Buscar Paciente</h3>
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+          {/* Dual input para CI */}
+          <select
+            value={searchCITipo}
+            onChange={(e) => setSearchCITipo(e.target.value)}
+            disabled={selectedPatient ? true : false}
+            style={{
+              padding: '0.75rem',
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '0.375rem',
+              color: 'var(--text-primary)',
+              fontSize: '0.95rem',
+              cursor: selectedPatient ? 'not-allowed' : 'pointer',
+              opacity: selectedPatient ? 0.6 : 1,
+            }}
+          >
+            <option value="V">V</option>
+            <option value="E">E</option>
+            <option value="P">P</option>
+          </select>
           <input
             type="text"
-            value={searchCI}
-            onChange={(e) => {
-              setSearchCI(e.target.value)
-              setSearchError('')
-            }}
+            value={searchCINumeros}
+            onChange={(e) => handleSearchCINumerosChange(e.target.value)}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 handleSearchPatient()
               }
             }}
-            placeholder="Ingrese CI del paciente (Ej: V-12345678)"
+            placeholder="Ej: 12345678"
+            maxLength={8}
             style={{
               flex: 1,
               padding: '0.75rem',
@@ -968,7 +974,8 @@ function CreateAppointmentForm() {
             <button
               onClick={() => {
                 setSelectedPatient(null)
-                setSearchCI('')
+                setSearchCITipo('V')
+                setSearchCINumeros('')
                 setCitasExistentes([])
                 setAppointmentData({
                   fecha: '',
@@ -1025,12 +1032,58 @@ function CreateAppointmentForm() {
         <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: 'rgba(124, 58, 237, 0.1)', borderRadius: '0.5rem', borderLeft: '3px solid #7c3aed' }}>
           <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>Citas Programadas</h4>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {citasExistentes.map((cita: any) => (
-              <div key={cita.id} style={{ padding: '0.75rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.375rem', fontSize: '0.9rem' }}>
-                <strong>{new Date(cita.fechaCita).toLocaleDateString('es-VE')} a las {cita.horaCita ? new Date(`1970-01-01T${cita.horaCita}`).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</strong> - {cita.especialidad}
-                <span style={{ float: 'right', color: '#7c3aed', fontSize: '0.8rem' }}>Estado: {cita.estado}</span>
-              </div>
-            ))}
+            {citasExistentes.map((cita: any) => {
+              // Parsear fecha: puede venir en formato ISO (2025-11-29T00:00:00.000Z) o Date
+              let fechaFormato = 'N/A'
+              if (cita.fechaCita) {
+                try {
+                  const fecha = typeof cita.fechaCita === 'string' 
+                    ? new Date(cita.fechaCita)
+                    : cita.fechaCita
+                  
+                  if (!isNaN(fecha.getTime())) {
+                    fechaFormato = fecha.toLocaleDateString('es-VE')
+                  }
+                } catch (e) {
+                  fechaFormato = 'N/A'
+                }
+              }
+              
+              // Parsear hora: puede venir en formato ISO (1970-01-01T14:30:00.000Z) o string
+              let horaFormato = 'N/A'
+              if (cita.horaCita) {
+                try {
+                  // Si es ISO string (1970-01-01T14:30:00.000Z), extraer HH:MM
+                  if (typeof cita.horaCita === 'string') {
+                    if (cita.horaCita.includes('T')) {
+                      // Formato ISO DateTime
+                      const horaMatch = cita.horaCita.match(/T(\d{2}):(\d{2})/)
+                      if (horaMatch) {
+                        horaFormato = `${horaMatch[1]}:${horaMatch[2]}`
+                      }
+                    } else if (cita.horaCita.includes(':')) {
+                      // Formato HH:MM:SS o HH:MM
+                      const partes = cita.horaCita.split(':')
+                      horaFormato = `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}`
+                    }
+                  } else if (cita.horaCita instanceof Date) {
+                    // Si es un Date object
+                    const horas = String(cita.horaCita.getHours()).padStart(2, '0')
+                    const minutos = String(cita.horaCita.getMinutes()).padStart(2, '0')
+                    horaFormato = `${horas}:${minutos}`
+                  }
+                } catch (e) {
+                  horaFormato = 'N/A'
+                }
+              }
+              
+              return (
+                <div key={cita.id} style={{ padding: '0.75rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.375rem', fontSize: '0.9rem' }}>
+                  <strong>{fechaFormato} a las {horaFormato}</strong> - {cita.especialidad}
+                  <span style={{ float: 'right', color: '#7c3aed', fontSize: '0.8rem' }}>Estado: {cita.estado}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -1075,19 +1128,14 @@ function CreateAppointmentForm() {
                 required
                 value={appointmentData.especialidad}
                 onChange={(e) => {
-                  console.log('Especialidad seleccionada:', e.target.value)
                   setAppointmentData({...appointmentData, especialidad: e.target.value})
                   setErrors({...errors, especialidad: ''})
                 }}
               >
                 <option value="">Seleccione especialidad...</option>
-                {especialidades && especialidades.length > 0 ? (
-                  especialidades.map(esp => (
-                    <option key={esp} value={esp}>{esp}</option>
-                  ))
-                ) : (
-                  <option disabled>No hay especialidades disponibles</option>
-                )}
+                {especialidades.map(esp => (
+                  <option key={esp} value={esp}>{esp}</option>
+                ))}
               </select>
               {errors.especialidad && <span className={styles["error-message"]}>{errors.especialidad}</span>}
             </div>
@@ -1167,15 +1215,35 @@ function CreateAppointmentForm() {
 // Componente para buscar y consultar historias clínicas
 function SearchPatientView() {
   const [searchType, setSearchType] = useState<'ci' | 'historia'>('ci')
-  const [searchValue, setSearchValue] = useState('')
+  const [searchCITipo, setSearchCITipo] = useState('V')
+  const [searchCINumeros, setSearchCINumeros] = useState('')
+  const [searchHistoria, setSearchHistoria] = useState('')
   const [patientData, setPatientData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const handleSearchCINumerosChange = (value: string) => {
+    // Solo permitir dígitos, extraer solo los números del paste
+    const soloNumeros = value.replace(/\D/g, '').slice(0, 8)
+    setSearchCINumeros(soloNumeros)
+    setError('')
+  }
+
   const handleSearch = async () => {
-    if (!searchValue.trim()) {
-      setError('Por favor ingrese un criterio de búsqueda')
-      return
+    let searchParam = ''
+    
+    if (searchType === 'ci') {
+      if (!searchCINumeros.trim()) {
+        setError('Por favor ingrese un CI')
+        return
+      }
+      searchParam = `${searchCITipo}-${searchCINumeros}`
+    } else {
+      if (!searchHistoria.trim()) {
+        setError('Por favor ingrese un número de historia')
+        return
+      }
+      searchParam = searchHistoria
     }
 
     setLoading(true)
@@ -1189,7 +1257,7 @@ function SearchPatientView() {
         : 'http://localhost:3001'
 
       // Construir URL de búsqueda
-      const param = searchType === 'ci' ? `ci=${encodeURIComponent(searchValue)}` : `historia=${encodeURIComponent(searchValue)}`
+      const param = searchType === 'ci' ? `ci=${encodeURIComponent(searchParam)}` : `historia=${encodeURIComponent(searchParam)}`
       const url = `${apiBaseUrl}/api/pacientes/search?${param}`
 
       const response = await fetch(url)
@@ -1229,14 +1297,24 @@ function SearchPatientView() {
 
   const calcularEdad = (fechaNac: string): number => {
     if (!fechaNac) return 0
-    const hoy = new Date()
-    const nac = new Date(fechaNac)
-    let edad = hoy.getFullYear() - nac.getFullYear()
-    const diferenciaMeses = hoy.getMonth() - nac.getMonth()
-    if (diferenciaMeses < 0 || (diferenciaMeses === 0 && hoy.getDate() < nac.getDate())) {
-      edad--
+    try {
+      const hoy = new Date()
+      // Parsear seguro: puede venir en formato ISO o date
+      const nac = typeof fechaNac === 'string' 
+        ? new Date(fechaNac)
+        : fechaNac
+      
+      if (isNaN(nac.getTime())) return 0
+      
+      let edad = hoy.getFullYear() - nac.getFullYear()
+      const diferenciaMeses = hoy.getMonth() - nac.getMonth()
+      if (diferenciaMeses < 0 || (diferenciaMeses === 0 && hoy.getDate() < nac.getDate())) {
+        edad--
+      }
+      return edad
+    } catch {
+      return 0
     }
-    return edad
   }
 
   return (
@@ -1244,28 +1322,32 @@ function SearchPatientView() {
       <h2>Consultar Historia Clínica</h2>
       <p className={styles["form-description"]}>Busque pacientes por CI o número de historia clínica</p>
 
-      <div className="search-options">
-        <div className="search-type-selector">
-          <label>
+      <div className="search-options" style={{ marginBottom: '2rem' }}>
+        <div className="search-type-selector" style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input
               type="radio"
               checked={searchType === 'ci'}
               onChange={() => {
                 setSearchType('ci')
-                setSearchValue('')
+                setSearchCITipo('V')
+                setSearchCINumeros('')
+                setSearchHistoria('')
                 setError('')
                 setPatientData(null)
               }}
             />
             Buscar por CI
           </label>
-          <label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input
               type="radio"
               checked={searchType === 'historia'}
               onChange={() => {
                 setSearchType('historia')
-                setSearchValue('')
+                setSearchCITipo('V')
+                setSearchCINumeros('')
+                setSearchHistoria('')
                 setError('')
                 setPatientData(null)
               }}
@@ -1274,23 +1356,89 @@ function SearchPatientView() {
           </label>
         </div>
 
-        <div className="search-input-group">
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => {
-              setSearchValue(e.target.value)
-              setError('')
+        <div className="search-input-group" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+          {searchType === 'ci' ? (
+            <>
+              {/* Dual input para CI */}
+              <select
+                value={searchCITipo}
+                onChange={(e) => setSearchCITipo(e.target.value)}
+                style={{
+                  padding: '0.75rem',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '0.375rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="V">V</option>
+                <option value="E">E</option>
+                <option value="P">P</option>
+              </select>
+              <input
+                type="text"
+                value={searchCINumeros}
+                onChange={(e) => handleSearchCINumerosChange(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch()
+                  }
+                }}
+                placeholder="Ej: 12345678"
+                maxLength={8}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '0.375rem',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.95rem',
+                }}
+              />
+            </>
+          ) : (
+            <input
+              type="text"
+              value={searchHistoria}
+              onChange={(e) => {
+                setSearchHistoria(e.target.value)
+                setError('')
+              }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch()
+                }
+              }}
+              placeholder="Ej: 00-00-00"
+              style={{
+                flex: 1,
+                padding: '0.75rem',
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '0.375rem',
+                color: 'var(--text-primary)',
+                fontSize: '0.95rem',
+              }}
+            />
+          )}
+          <button 
+            onClick={handleSearch} 
+            disabled={loading}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#7c3aed',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+              fontSize: '0.95rem',
+              fontWeight: 500,
             }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch()
-              }
-            }}
-            placeholder={searchType === 'ci' ? 'Ej: V-12345678' : 'Ej: 00-00-00'}
-            className="search-input"
-          />
-          <button onClick={handleSearch} disabled={loading} className="btn-search">
+          >
             {loading ? 'Buscando...' : 'Buscar Paciente'}
           </button>
         </div>
@@ -1324,7 +1472,17 @@ function SearchPatientView() {
             </div>
             <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <strong>Fecha de Nacimiento:</strong>
-              <span>{new Date(patientData.fechaNacimiento).toLocaleDateString('es-VE')}</span>
+              <span>{(() => {
+                try {
+                  const fecha = typeof patientData.fechaNacimiento === 'string'
+                    ? new Date(patientData.fechaNacimiento)
+                    : patientData.fechaNacimiento
+                  
+                  return isNaN(fecha.getTime()) ? 'N/A' : fecha.toLocaleDateString('es-VE')
+                } catch {
+                  return 'N/A'
+                }
+              })()}</span>
             </div>
             <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <strong>Sexo:</strong>
