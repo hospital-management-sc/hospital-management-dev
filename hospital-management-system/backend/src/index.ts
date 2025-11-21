@@ -14,6 +14,7 @@ import { initializeDatabase, disconnectDatabase } from './database/connection';
 import logger from './utils/logger';
 import config from './config';
 import authRoutes from './routes/auth';
+import pacientesRoutes from './routes/pacientes';
 
 // Load environment variables
 dotenv.config();
@@ -101,6 +102,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Pacientes routes
+app.use('/api/pacientes', pacientesRoutes);
 
 // ============================================
 // ERROR HANDLING MIDDLEWARE
