@@ -69,14 +69,6 @@ export default function AdminDashboard() {
           </button>
         </div>
       </section>
-
-      {/* Sección de Actividad Reciente */}
-      <section className={styles['recent-activity']}>
-        <h2>Actividad Reciente</h2>
-        <div className={styles['activity-placeholder']}>
-          <p>Registros de actividad reciente se mostrarán aquí</p>
-        </div>
-      </section>
     </>
   )
 
@@ -593,6 +585,16 @@ function RegisterPatientForm() {
               value={formData.componente}
               onChange={(e) => setFormData({...formData, componente: e.target.value})}
               placeholder="Ej: Ejército, Aviación"
+            />
+          </div>
+
+          <div className={styles["form-group"]}>
+            <label>Unidad</label>
+            <input
+              type="text"
+              value={formData.unidad}
+              onChange={(e) => setFormData({...formData, unidad: e.target.value})}
+              placeholder="Ej: Batallón, Brigada"
             />
           </div>
 
@@ -1304,17 +1306,28 @@ function SearchPatientView() {
     }
   }
 
-  const calcularEdad = (fechaNac: string): number => {
+  const calcularEdad = (fechaNac: any): number => {
     if (!fechaNac) return 0
     try {
-      const hoy = new Date()
-      // Parsear seguro: puede venir en formato ISO o date
-      const nac = typeof fechaNac === 'string' 
-        ? new Date(fechaNac)
-        : fechaNac
+      // Extraer solo la parte de fecha YYYY-MM-DD sin considerar zona horaria
+      let fechaStr: string
+      if (typeof fechaNac === 'string') {
+        // Si viene como "1970-03-15" o "1970-03-15T00:00:00.000Z"
+        fechaStr = fechaNac.split('T')[0]
+      } else if (fechaNac instanceof Date) {
+        // Convertir a ISO y extraer solo la fecha
+        fechaStr = fechaNac.toISOString().split('T')[0]
+      } else {
+        return 0
+      }
+      
+      // Parsear la fecha como YYYY-MM-DD local (sin zona horaria)
+      const [year, month, day] = fechaStr.split('-').map(Number)
+      const nac = new Date(year, month - 1, day) // Mes es 0-indexed
       
       if (isNaN(nac.getTime())) return 0
       
+      const hoy = new Date()
       let edad = hoy.getFullYear() - nac.getFullYear()
       const diferenciaMeses = hoy.getMonth() - nac.getMonth()
       if (diferenciaMeses < 0 || (diferenciaMeses === 0 && hoy.getDate() < nac.getDate())) {
@@ -1483,9 +1496,21 @@ function SearchPatientView() {
               <strong>Fecha de Nacimiento:</strong>
               <span>{(() => {
                 try {
-                  const fecha = typeof patientData.fechaNacimiento === 'string'
-                    ? new Date(patientData.fechaNacimiento)
-                    : patientData.fechaNacimiento
+                  if (!patientData.fechaNacimiento) return 'N/A'
+                  
+                  // Extraer solo la parte de fecha YYYY-MM-DD sin zona horaria
+                  let fechaStr: string
+                  if (typeof patientData.fechaNacimiento === 'string') {
+                    fechaStr = patientData.fechaNacimiento.split('T')[0]
+                  } else if (patientData.fechaNacimiento instanceof Date) {
+                    fechaStr = patientData.fechaNacimiento.toISOString().split('T')[0]
+                  } else {
+                    return 'N/A'
+                  }
+                  
+                  // Parsear como fecha local YYYY-MM-DD
+                  const [year, month, day] = fechaStr.split('-').map(Number)
+                  const fecha = new Date(year, month - 1, day)
                   
                   return isNaN(fecha.getTime()) ? 'N/A' : fecha.toLocaleDateString('es-VE')
                 } catch {
@@ -1526,6 +1551,14 @@ function SearchPatientView() {
                 <div><strong>Grado:</strong> {patientData.personalMilitar.grado || 'N/A'}</div>
                 <div><strong>Componente:</strong> {patientData.personalMilitar.componente || 'N/A'}</div>
                 <div><strong>Unidad:</strong> {patientData.personalMilitar.unidad || 'N/A'}</div>
+                <div><strong>Estado Militar:</strong> {(() => {
+                  const estado = patientData.personalMilitar.estadoMilitar
+                  if (!estado) return 'N/A'
+                  if (estado === 'activo') return 'Activo'
+                  if (estado === 'disponible') return 'Disponible'
+                  if (estado === 'resActiva') return 'Reserva Activa'
+                  return 'N/A'
+                })()}</div>
               </div>
             </div>
           )}

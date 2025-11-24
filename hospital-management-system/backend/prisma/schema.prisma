@@ -49,6 +49,7 @@ model PersonalMilitar {
   grado           String? @db.VarChar(50)
   componente      String? @db.VarChar(100)
   unidad          String? @db.VarChar(200)
+  estadoMilitar   String? @db.VarChar(50) // activo, disponible, resActiva
 
   // Relaciones
   paciente        Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)

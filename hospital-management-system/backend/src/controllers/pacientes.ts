@@ -19,6 +19,11 @@ function convertBigIntToString(obj: any): any {
     return obj.toString();
   }
   
+  // Preservar objetos Date (se serializarán automáticamente a ISO string en JSON)
+  if (obj instanceof Date) {
+    return obj;
+  }
+  
   if (Array.isArray(obj)) {
     return obj.map(item => convertBigIntToString(item));
   }
@@ -67,6 +72,7 @@ export const crearPaciente = async (
       
       // Datos militares (opcional)
       grado,
+      estadoMilitar,
       componente,
       unidad,
       
@@ -158,11 +164,12 @@ export const crearPaciente = async (
       }
 
       // Crear datos militares si se proporcionan
-      if (grado || componente || unidad) {
+      if (grado || estadoMilitar || componente || unidad) {
         await tx.personalMilitar.create({
           data: {
             pacienteId: paciente.id,
             grado: grado || null,
+            estadoMilitar: estadoMilitar || null,
             componente: componente || null,
             unidad: unidad || null,
           },
