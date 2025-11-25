@@ -851,7 +851,7 @@ function CreateAppointmentForm({ preSelectedPatient }: { preSelectedPatient?: an
       setSelectedPatient(result.data)
 
       // Cargar citas existentes del paciente
-      const citasResponse = await fetch(`${apiBaseUrl}/api/citas/paciente/${result.data.id}?estado=PROGRAMADA`)
+      const citasResponse = await fetch(`${API_BASE_URL}/citas/paciente/${result.data.id}?estado=PROGRAMADA`)
       const citasResult = await citasResponse.json()
 
       if (citasResult.success) {
@@ -930,7 +930,7 @@ function CreateAppointmentForm({ preSelectedPatient }: { preSelectedPatient?: an
       setErrors({})
 
       // Recargar citas
-      const citasResponse = await fetch(`${apiBaseUrl}/api/citas/paciente/${selectedPatient.id}?estado=PROGRAMADA`)
+      const citasResponse = await fetch(`${API_BASE_URL}/citas/paciente/${selectedPatient.id}?estado=PROGRAMADA`)
       const citasResult = await citasResponse.json()
       if (citasResult.success) {
         setCitasExistentes(citasResult.data || [])
