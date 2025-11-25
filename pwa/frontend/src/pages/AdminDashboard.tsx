@@ -7,6 +7,10 @@ import { useState, useEffect } from 'react'
 import styles from './AdminDashboard.module.css'
 import { useDashboardStats } from '../hooks/useDashboardStats'
 import RegistrarAdmision from '../components/RegistrarAdmision'
+import EncuentrosList from '../components/EncuentrosList'
+import EncuentroDetailModal from '../components/EncuentroDetailModal'
+import { encuentrosService } from '../services/encuentros.service'
+import type { Encuentro } from '../services/encuentros.service'
 import { API_BASE_URL } from '../utils/constants'
 
 type ViewMode = 'main' | 'register-patient' | 'create-appointment' | 'search-patient' | 'register-admission' | 'patient-history'
@@ -1562,10 +1566,14 @@ function SearchPatientView({ onViewHistory, onScheduleAppointment }: { onViewHis
 // Componente para ver historia clínica completa con timeline
 function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => void }) {
   const [historiaCompleta, setHistoriaCompleta] = useState<any>(null)
+  const [encuentros, setEncuentros] = useState<Encuentro[]>([])
+  const [encuentroSeleccionado, setEncuentroSeleccionado] = useState<Encuentro | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingEncuentros, setLoadingEncuentros] = useState(true)
 
   useEffect(() => {
     cargarHistoriaCompleta()
+    cargarEncuentros()
   }, [patient.id])
 
   const cargarHistoriaCompleta = async () => {
@@ -1590,6 +1598,28 @@ function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => v
     } finally {
       setLoading(false)
     }
+  }
+
+  const cargarEncuentros = async () => {
+    setLoadingEncuentros(true)
+    try {
+      const data = await encuentrosService.obtenerPorPaciente(patient.id)
+      setEncuentros(data)
+      console.log('✅ Encuentros cargados:', data.length)
+    } catch (err) {
+      console.error('Error al cargar encuentros:', err)
+      setEncuentros([])
+    } finally {
+      setLoadingEncuentros(false)
+    }
+  }
+
+  const handleVerDetalleEncuentro = (encuentro: Encuentro) => {
+    setEncuentroSeleccionado(encuentro)
+  }
+
+  const handleCerrarDetalle = () => {
+    setEncuentroSeleccionado(null)
   }
 
   const calcularEdad = (fechaNac: any): number => {
@@ -2130,6 +2160,35 @@ function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => v
           </div>
         )}
       </div>
+
+      {/* Sección de Encuentros Médicos */}
+      <div style={{ marginTop: '3rem' }}>
+        <h3 style={{ marginBottom: '1.5rem' }}>🩺 Encuentros Médicos</h3>
+        {loadingEncuentros ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '2rem', 
+            backgroundColor: 'var(--bg-tertiary)', 
+            borderRadius: '0.5rem',
+            border: '1px solid var(--border-color)'
+          }}>
+            <p style={{ color: 'var(--text-secondary)' }}>Cargando encuentros...</p>
+          </div>
+        ) : (
+          <EncuentrosList 
+            encuentros={encuentros} 
+            onVerDetalle={handleVerDetalleEncuentro}
+          />
+        )}
+      </div>
+
+      {/* Modal de detalle de encuentro */}
+      {encuentroSeleccionado && (
+        <EncuentroDetailModal
+          encuentro={encuentroSeleccionado}
+          onClose={handleCerrarDetalle}
+        />
+      )}
     </section>
   )
 }
