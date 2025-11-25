@@ -17,6 +17,7 @@ import authRoutes from './routes/auth';
 import pacientesRoutes from './routes/pacientes';
 import citasRoutes from './routes/citas';
 import dashboardRoutes from './routes/dashboard';
+import admisionesRoutes from './routes/admisiones';
 
 // Load environment variables
 dotenv.config();
@@ -113,6 +114,9 @@ app.use('/api/citas', citasRoutes);
 
 // Dashboard routes
 app.use('/api/dashboard', dashboardRoutes);
+
+// Admisiones routes
+app.use('/api/admisiones', admisionesRoutes);
 
 // ============================================
 // ERROR HANDLING MIDDLEWARE

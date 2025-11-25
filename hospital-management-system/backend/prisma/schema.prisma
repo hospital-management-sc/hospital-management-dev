@@ -95,9 +95,12 @@ model Admision {
   id         BigInt @id @default(autoincrement())
   pacienteId BigInt
 
-  // Tipo y servicio
-  tipo            String   @default("HOSPITALIZACION") @db.VarChar(50) // EMERGENCIA | HOSPITALIZACION | CONSULTA_EXTERNA | UCI | CIRUGIA
+  // Tipo y servicio (null para admisión inicial, se completa con "Registrar Admisión")
+  tipo            String?  @db.VarChar(50) // EMERGENCIA | HOSPITALIZACION | CONSULTA_EXTERNA | UCI | CIRUGIA
   servicio        String?  @db.VarChar(100) // EMERGENCIA | MEDICINA_INTERNA | CIRUGIA_GENERAL | UCI | PEDIATRIA | etc.
+
+  // Diagnóstico de ingreso (opcional, se registra en la admisión inicial)
+  diagnosticoIngreso String? @db.Text
 
   // Fechas y horas
   fechaAdmision DateTime  @db.Date

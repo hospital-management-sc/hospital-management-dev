@@ -1,0 +1,65 @@
+import { Router } from 'express';
+import {
+  crearAdmision,
+  obtenerAdmision,
+  listarAdmisionesPaciente,
+  actualizarAdmision,
+  registrarAlta,
+  listarAdmisionesActivas,
+  listarAdmisionesPorServicio,
+} from '../controllers/admisiones';
+
+const router = Router();
+
+/**
+ * @route   POST /api/admisiones
+ * @desc    Crear nueva admisión
+ * @access  Private (Administrativo)
+ */
+router.post('/', crearAdmision);
+
+/**
+ * @route   GET /api/admisiones/activas
+ * @desc    Listar pacientes hospitalizados actualmente
+ * @access  Private
+ * @query   ?servicio=MEDICINA_INTERNA&tipo=HOSPITALIZACION
+ */
+router.get('/activas', listarAdmisionesActivas);
+
+/**
+ * @route   GET /api/admisiones/servicio/:servicio
+ * @desc    Listar admisiones por servicio
+ * @access  Private
+ * @query   ?estado=ACTIVA
+ */
+router.get('/servicio/:servicio', listarAdmisionesPorServicio);
+
+/**
+ * @route   GET /api/admisiones/paciente/:pacienteId
+ * @desc    Listar todas las admisiones de un paciente
+ * @access  Private
+ */
+router.get('/paciente/:pacienteId', listarAdmisionesPaciente);
+
+/**
+ * @route   GET /api/admisiones/:id
+ * @desc    Obtener admisión específica con todos sus datos
+ * @access  Private
+ */
+router.get('/:id', obtenerAdmision);
+
+/**
+ * @route   PUT /api/admisiones/:id
+ * @desc    Actualizar datos de admisión
+ * @access  Private (Administrativo)
+ */
+router.put('/:id', actualizarAdmision);
+
+/**
+ * @route   PATCH /api/admisiones/:id/alta
+ * @desc    Registrar alta del paciente
+ * @access  Private (Médico/Administrativo)
+ */
+router.patch('/:id/alta', registrarAlta);
+
+export default router;

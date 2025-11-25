@@ -6,11 +6,14 @@
 import { useState, useEffect } from 'react'
 import styles from './AdminDashboard.module.css'
 import { useDashboardStats } from '../hooks/useDashboardStats'
+import RegistrarAdmision from '../components/RegistrarAdmision'
 
-type ViewMode = 'main' | 'register-patient' | 'create-appointment' | 'search-patient'
+type ViewMode = 'main' | 'register-patient' | 'create-appointment' | 'search-patient' | 'register-admission' | 'patient-history'
 
 export default function AdminDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('main')
+  const [selectedPatientForHistory, setSelectedPatientForHistory] = useState<any>(null)
+  const [selectedPatientForAppointment, setSelectedPatientForAppointment] = useState<any>(null)
   const { stats, loading, error } = useDashboardStats(30000) // Actualizar cada 30 segundos
 
   const renderMainView = () => (
@@ -67,6 +70,13 @@ export default function AdminDashboard() {
             <span className={styles.icon}>🔍</span>
             <span>Consultar Historia Clínica</span>
           </button>
+          <button 
+            className={styles['admin-btn']}
+            onClick={() => setViewMode('register-admission')}
+          >
+            <span className={styles.icon}>🏥</span>
+            <span>Registrar Admisión</span>
+          </button>
         </div>
       </section>
     </>
@@ -94,8 +104,29 @@ export default function AdminDashboard() {
       <main className={styles['dashboard-main']}>
         {viewMode === 'main' && renderMainView()}
         {viewMode === 'register-patient' && <RegisterPatientForm />}
-        {viewMode === 'create-appointment' && <CreateAppointmentForm />}
-        {viewMode === 'search-patient' && <SearchPatientView />}
+        {viewMode === 'create-appointment' && <CreateAppointmentForm preSelectedPatient={selectedPatientForAppointment} />}
+        {viewMode === 'search-patient' && (
+          <SearchPatientView 
+            onViewHistory={(patient) => {
+              setSelectedPatientForHistory(patient)
+              setViewMode('patient-history')
+            }}
+            onScheduleAppointment={(patient) => {
+              setSelectedPatientForAppointment(patient)
+              setViewMode('create-appointment')
+            }}
+          />
+        )}
+        {viewMode === 'register-admission' && <RegistrarAdmision onBack={() => setViewMode('main')} />}
+        {viewMode === 'patient-history' && selectedPatientForHistory && (
+          <PatientHistoryView 
+            patient={selectedPatientForHistory}
+            onBack={() => {
+              setViewMode('search-patient')
+              setSelectedPatientForHistory(null)
+            }}
+          />
+        )}
       </main>
     </div>
   )
@@ -107,8 +138,8 @@ function RegisterPatientForm() {
     // ADMISION
     nroHistoria: '',
     formaIngreso: 'AMBULANTE',
-    fechaAdmision: '',
-    horaAdmision: '',
+    fechaAdmision: new Date().toISOString().split('T')[0],
+    horaAdmision: new Date().toTimeString().slice(0, 5),
     firmaFacultativo: '',
     habitacion: '',
     
@@ -284,8 +315,8 @@ function RegisterPatientForm() {
       setFormData({
         nroHistoria: '',
         formaIngreso: 'AMBULANTE',
-        fechaAdmision: '',
-        horaAdmision: '',
+        fechaAdmision: new Date().toISOString().split('T')[0],
+        horaAdmision: new Date().toTimeString().slice(0, 5),
         firmaFacultativo: '',
         habitacion: '',
         apellidosNombres: '',
@@ -407,6 +438,16 @@ function RegisterPatientForm() {
               value={formData.firmaFacultativo}
               onChange={(e) => setFormData({...formData, firmaFacultativo: e.target.value})}
               placeholder="Nombre y firma del médico"
+            />
+          </div>
+
+          <div className={styles["form-group"]} style={{ gridColumn: '1 / -1' }}>
+            <label>Diagnóstico de Ingreso</label>
+            <input
+              type="text"
+              value={formData.diagnosticoIngreso}
+              onChange={(e) => setFormData({...formData, diagnosticoIngreso: e.target.value})}
+              placeholder="Ej: Hipertensión Arterial, Fractura de tibia, etc."
             />
           </div>
         </div>
@@ -635,53 +676,6 @@ function RegisterPatientForm() {
           </div>
         </div>
 
-        {/* SECCIÓN 4: DATOS DE ESTANCIA HOSPITALARIA */}
-        <div className={styles["form-section-header"]}>
-          <h3>4. Datos de Estancia Hospitalaria</h3>
-        </div>
-
-        <div className={styles["form-grid"]}>
-          <div className={styles["form-group"]}>
-            <label>Diagnóstico de Ingreso</label>
-            <input
-              type="text"
-              value={formData.diagnosticoIngreso}
-              onChange={(e) => setFormData({...formData, diagnosticoIngreso: e.target.value})}
-              placeholder="Ej: Hipertensión Arterial"
-            />
-          </div>
-
-          <div className={styles["form-group"]}>
-            <label>Diagnóstico de Egreso</label>
-            <input
-              type="text"
-              value={formData.diagnosticoEgreso}
-              onChange={(e) => setFormData({...formData, diagnosticoEgreso: e.target.value})}
-              placeholder="Ej: Hipertensión controlada"
-            />
-          </div>
-
-          <div className={styles["form-group"]}>
-            <label>Fecha de Alta</label>
-            <input
-              type="date"
-              value={formData.fechaAlta}
-              onChange={(e) => setFormData({...formData, fechaAlta: e.target.value})}
-            />
-          </div>
-
-          <div className={styles["form-group"]}>
-            <label>Días de Hospitalización</label>
-            <input
-              type="number"
-              value={formData.diasHospitalizacion}
-              onChange={(e) => setFormData({...formData, diasHospitalizacion: e.target.value})}
-              placeholder="0"
-              min="0"
-            />
-          </div>
-        </div>
-
         <div className="form-actions">
           <button type="submit" className="btn-primary">
             Registrar Admisión
@@ -693,8 +687,8 @@ function RegisterPatientForm() {
               setFormData({
                 nroHistoria: '',
                 formaIngreso: 'AMBULANTE',
-                fechaAdmision: '',
-                horaAdmision: '',
+                fechaAdmision: new Date().toISOString().split('T')[0],
+                horaAdmision: new Date().toTimeString().slice(0, 5),
                 firmaFacultativo: '',
                 habitacion: '',
                 apellidosNombres: '',
@@ -730,10 +724,10 @@ function RegisterPatientForm() {
 }
 
 // Componente para crear cita médica
-function CreateAppointmentForm() {
+function CreateAppointmentForm({ preSelectedPatient }: { preSelectedPatient?: any } = {}) {
   const [searchCITipo, setSearchCITipo] = useState('V')
   const [searchCINumeros, setSearchCINumeros] = useState('')
-  const [selectedPatient, setSelectedPatient] = useState<any>(null)
+  const [selectedPatient, setSelectedPatient] = useState<any>(preSelectedPatient || null)
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [especialidades, setEspecialidades] = useState<string[]>([
@@ -771,6 +765,29 @@ function CreateAppointmentForm() {
   useEffect(() => {
     cargarEspecialidades()
   }, [])
+
+  // Cargar citas si hay paciente pre-seleccionado
+  useEffect(() => {
+    if (preSelectedPatient) {
+      const cargarCitasPaciente = async () => {
+        try {
+          const apiBaseUrl = window.location.hostname.includes('app.github.dev')
+            ? window.location.origin.replace('-5173.', '-3001.')
+            : 'http://localhost:3001'
+          
+          const citasResponse = await fetch(`${apiBaseUrl}/api/citas/paciente/${preSelectedPatient.id}?estado=PROGRAMADA`)
+          const citasResult = await citasResponse.json()
+          
+          if (citasResult.success) {
+            setCitasExistentes(citasResult.data || [])
+          }
+        } catch (err) {
+          console.error('Error al cargar citas:', err)
+        }
+      }
+      cargarCitasPaciente()
+    }
+  }, [preSelectedPatient])
 
   // Cargar especialidades al montar
   const cargarEspecialidades = async () => {
@@ -1224,7 +1241,7 @@ function CreateAppointmentForm() {
 }
 
 // Componente para buscar y consultar historias clínicas
-function SearchPatientView() {
+function SearchPatientView({ onViewHistory, onScheduleAppointment }: { onViewHistory: (patient: any) => void; onScheduleAppointment: (patient: any) => void }) {
   const [searchType, setSearchType] = useState<'ci' | 'historia'>('ci')
   const [searchCITipo, setSearchCITipo] = useState('V')
   const [searchCINumeros, setSearchCINumeros] = useState('')
@@ -1474,119 +1491,639 @@ function SearchPatientView() {
 
       {patientData && (
         <div className="patient-details" style={{ marginTop: '2rem' }}>
-          <h3>Información del Paciente</h3>
-          <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Nro. Historia:</strong>
-              <span>{patientData.nroHistoria}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Nombre Completo:</strong>
-              <span>{patientData.apellidosNombres}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>CI:</strong>
-              <span>{patientData.ci}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Edad:</strong>
-              <span>{calcularEdad(patientData.fechaNacimiento)} años</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Fecha de Nacimiento:</strong>
-              <span>{(() => {
-                try {
-                  if (!patientData.fechaNacimiento) return 'N/A'
-                  
-                  // Extraer solo la parte de fecha YYYY-MM-DD sin zona horaria
-                  let fechaStr: string
-                  if (typeof patientData.fechaNacimiento === 'string') {
-                    fechaStr = patientData.fechaNacimiento.split('T')[0]
-                  } else if (patientData.fechaNacimiento instanceof Date) {
-                    fechaStr = patientData.fechaNacimiento.toISOString().split('T')[0]
-                  } else {
-                    return 'N/A'
-                  }
-                  
-                  // Parsear como fecha local YYYY-MM-DD
-                  const [year, month, day] = fechaStr.split('-').map(Number)
-                  const fecha = new Date(year, month - 1, day)
-                  
-                  return isNaN(fecha.getTime()) ? 'N/A' : fecha.toLocaleDateString('es-VE')
-                } catch {
-                  return 'N/A'
-                }
-              })()}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Sexo:</strong>
-              <span>{patientData.sexo === 'M' ? 'Masculino' : 'Femenino'}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Nacionalidad:</strong>
-              <span>{patientData.nacionalidad || 'N/A'}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Teléfono:</strong>
-              <span>{patientData.telefono || 'N/A'}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Estado:</strong>
-              <span>{patientData.estado || 'N/A'}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <strong>Lugar de Nacimiento:</strong>
-              <span>{patientData.lugarNacimiento || 'N/A'}</span>
-            </div>
-            <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: '1 / -1' }}>
-              <strong>Dirección:</strong>
-              <span>{patientData.direccion || 'N/A'}</span>
-            </div>
-          </div>
-
-          {patientData.personalMilitar && (
-            <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: 'rgba(124, 58, 237, 0.1)', borderRadius: '0.5rem', borderLeft: '3px solid #7c3aed' }}>
-              <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>Datos Militares</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                <div><strong>Grado:</strong> {patientData.personalMilitar.grado || 'N/A'}</div>
-                <div><strong>Componente:</strong> {patientData.personalMilitar.componente || 'N/A'}</div>
-                <div><strong>Unidad:</strong> {patientData.personalMilitar.unidad || 'N/A'}</div>
-                <div><strong>Estado Militar:</strong> {(() => {
-                  const estado = patientData.personalMilitar.estadoMilitar
-                  if (!estado) return 'N/A'
-                  if (estado === 'activo') return 'Activo'
-                  if (estado === 'disponible') return 'Disponible'
-                  if (estado === 'resActiva') return 'Reserva Activa'
-                  return 'N/A'
-                })()}</div>
+          <h3 style={{ marginBottom: '1.5rem' }}>Paciente Encontrado</h3>
+          <div style={{ 
+            backgroundColor: 'var(--bg-tertiary)', 
+            padding: '1.5rem', 
+            borderRadius: '0.5rem', 
+            marginBottom: '2rem',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Nro. Historia:</strong>
+                <span style={{ fontSize: '1.1rem', fontWeight: '500' }}>{patientData.nroHistoria}</span>
               </div>
-            </div>
-          )}
-
-          <div className="patient-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div className="stat-card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '0.5rem', textAlign: 'center' }}>
-              <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Admisiones</h4>
-              <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>{patientData.admisiones.length}</p>
-            </div>
-            <div className="stat-card" style={{ padding: '1.5rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '0.5rem', textAlign: 'center' }}>
-              <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Encuentros</h4>
-              <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>{patientData.encuentros.length}</p>
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Nombre Completo:</strong>
+                <span style={{ fontSize: '1.1rem', fontWeight: '500' }}>{patientData.apellidosNombres}</span>
+              </div>
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>CI:</strong>
+                <span style={{ fontSize: '1.1rem', fontWeight: '500' }}>{patientData.ci}</span>
+              </div>
+              <div className="detail-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Edad:</strong>
+                <span style={{ fontSize: '1.1rem', fontWeight: '500' }}>{calcularEdad(patientData.fechaNacimiento)} años</span>
+              </div>
             </div>
           </div>
 
           <div className="action-buttons" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <button className="btn-primary" style={{ padding: '0.75rem 1.5rem', cursor: 'pointer' }}>
-              Ver Historia Completa
+            <button 
+              className="btn-primary" 
+              style={{ padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+              onClick={() => onViewHistory(patientData)}
+            >
+              📋 Ver Historia Completa
             </button>
-            <button className="btn-secondary" style={{ padding: '0.75rem 1.5rem', cursor: 'pointer' }}>
-              Imprimir Resumen
+            <button 
+              className="btn-secondary" 
+              style={{ padding: '0.75rem 1.5rem', cursor: 'not-allowed', opacity: 0.5 }}
+              disabled
+              title="Funcionalidad en desarrollo"
+            >
+              🖨️ Imprimir Resumen
             </button>
-            <button className="btn-secondary" style={{ padding: '0.75rem 1.5rem', cursor: 'pointer' }}>
-              Programar Cita
+            <button 
+              className="btn-secondary" 
+              style={{ padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+              onClick={() => onScheduleAppointment(patientData)}
+            >
+              📅 Programar Cita
             </button>
           </div>
         </div>
       )}
+    </section>
+  )
+}
+
+// Componente para ver historia clínica completa con timeline
+function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => void }) {
+  const [historiaCompleta, setHistoriaCompleta] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    cargarHistoriaCompleta()
+  }, [patient.id])
+
+  const cargarHistoriaCompleta = async () => {
+    setLoading(true)
+    try {
+      const apiBaseUrl = window.location.hostname.includes('app.github.dev')
+        ? window.location.origin.replace('-5173.', '-3001.')
+        : 'http://localhost:3001'
+
+      // Cargar datos completos del paciente con admisiones y encuentros
+      const response = await fetch(`${apiBaseUrl}/api/pacientes/${patient.id}`)
+      const result = await response.json()
+
+      if (result.success) {
+        console.log('📊 Datos completos del paciente:', result.data)
+        console.log('📋 Admisiones encontradas:', result.data.admisiones?.length || 0)
+        console.log('⚕️ Encuentros encontrados:', result.data.encuentros?.length || 0)
+        console.log('📅 Citas encontradas:', result.data.citas?.length || 0)
+        if (result.data.admisiones && result.data.admisiones.length > 0) {
+          console.log('🔍 Detalle admisiones:', JSON.stringify(result.data.admisiones, null, 2))
+        }
+        setHistoriaCompleta(result.data)
+      }
+    } catch (err) {
+      console.error('Error al cargar historia:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const calcularEdad = (fechaNac: any): number => {
+    if (!fechaNac) return 0
+    try {
+      let fechaStr: string
+      if (typeof fechaNac === 'string') {
+        fechaStr = fechaNac.split('T')[0]
+      } else if (fechaNac instanceof Date) {
+        fechaStr = fechaNac.toISOString().split('T')[0]
+      } else {
+        return 0
+      }
+      
+      const [year, month, day] = fechaStr.split('-').map(Number)
+      const nac = new Date(year, month - 1, day)
+      
+      if (isNaN(nac.getTime())) return 0
+      
+      const hoy = new Date()
+      let edad = hoy.getFullYear() - nac.getFullYear()
+      const diferenciaMeses = hoy.getMonth() - nac.getMonth()
+      if (diferenciaMeses < 0 || (diferenciaMeses === 0 && hoy.getDate() < nac.getDate())) {
+        edad--
+      }
+      return edad
+    } catch {
+      return 0
+    }
+  }
+
+  const formatearFecha = (fecha: any): string => {
+    if (!fecha) return 'N/A'
+    try {
+      let fechaStr: string
+      if (typeof fecha === 'string') {
+        fechaStr = fecha.split('T')[0]
+      } else if (fecha instanceof Date) {
+        fechaStr = fecha.toISOString().split('T')[0]
+      } else {
+        return 'N/A'
+      }
+      
+      const [year, month, day] = fechaStr.split('-').map(Number)
+      const fechaObj = new Date(year, month - 1, day)
+      
+      return isNaN(fechaObj.getTime()) ? 'N/A' : fechaObj.toLocaleDateString('es-VE', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+    } catch {
+      return 'N/A'
+    }
+  }
+
+  const formatearHora = (hora: any): string => {
+    if (!hora) return 'N/A'
+    try {
+      let horaDate: Date
+      
+      if (typeof hora === 'string') {
+        // Puede venir como "14:30:00" o "1970-01-01T14:30:00.000Z"
+        if (hora.includes('T')) {
+          horaDate = new Date(hora)
+        } else {
+          // Formato "HH:MM:SS"
+          const [hh, mm] = hora.split(':')
+          return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`
+        }
+      } else if (hora instanceof Date) {
+        horaDate = hora
+      } else {
+        return 'N/A'
+      }
+      
+      const horas = horaDate.getHours().toString().padStart(2, '0')
+      const minutos = horaDate.getMinutes().toString().padStart(2, '0')
+      return `${horas}:${minutos}`
+    } catch {
+      return 'N/A'
+    }
+  }
+
+  // Construir timeline de eventos
+  const construirTimeline = () => {
+    if (!historiaCompleta) return []
+
+    const eventos: any[] = []
+
+    // Evento: Registro inicial
+    if (historiaCompleta.createdAt) {
+      eventos.push({
+        tipo: 'REGISTRO',
+        fecha: historiaCompleta.createdAt,
+        hora: historiaCompleta.createdAt,
+        icono: '📋',
+        titulo: 'Registro en el Sistema',
+        descripcion: `Paciente registrado en el sistema hospitalario. Nro. Historia: ${historiaCompleta.nroHistoria}`,
+        color: '#10b981'
+      })
+    }
+
+    // Eventos: Admisiones
+    if (historiaCompleta.admisiones && historiaCompleta.admisiones.length > 0) {
+      historiaCompleta.admisiones.forEach((admision: any) => {
+        // Diferenciar entre admisión inicial (sin tipo/servicio) y admisiones específicas
+        const esAdmisionInicial = !admision.tipo && !admision.servicio
+        
+        if (esAdmisionInicial) {
+          // Admisión de registro inicial
+          const formaIngreso = admision.formaIngreso || 'No especificado'
+          const diagnostico = admision.diagnosticoIngreso || 'Sin diagnóstico'
+          
+          eventos.push({
+            tipo: 'ADMISION_INICIAL',
+            fecha: admision.fechaAdmision || admision.createdAt,
+            hora: admision.horaAdmision || admision.createdAt,
+            icono: '🏥',
+            titulo: 'Admisión Inicial',
+            descripcion: `Forma de ingreso: ${formaIngreso}. Diagnóstico: ${diagnostico}`,
+            detalles: admision,
+            color: '#10b981'
+          })
+        } else {
+          // Admisión específica (emergencia/hospitalización)
+          const tipoAdmision = admision.tipo || 'HOSPITALIZACIÓN'
+          const servicioAdmision = admision.servicio || 'No especificado'
+          const estadoAdmision = admision.estado || 'ACTIVA'
+          
+          eventos.push({
+            tipo: 'ADMISION',
+            fecha: admision.fechaAdmision || admision.createdAt,
+            hora: admision.horaAdmision || admision.createdAt,
+            icono: tipoAdmision === 'EMERGENCIA' ? '🚨' : '🏥',
+            titulo: `Admisión: ${tipoAdmision}`,
+            descripcion: `Servicio: ${servicioAdmision}. Estado: ${estadoAdmision}`,
+            detalles: admision,
+            color: tipoAdmision === 'EMERGENCIA' ? '#ef4444' : '#3b82f6'
+          })
+        }
+      })
+    }
+
+    // Eventos: Encuentros médicos
+    if (historiaCompleta.encuentros && historiaCompleta.encuentros.length > 0) {
+      historiaCompleta.encuentros.forEach((encuentro: any) => {
+        eventos.push({
+          tipo: 'ENCUENTRO',
+          fecha: encuentro.fechaEncuentro,
+          hora: encuentro.horaEncuentro || encuentro.createdAt,
+          icono: '⚕️',
+          titulo: `Consulta: ${encuentro.tipoEncuentro || 'N/A'}`,
+          descripcion: `Médico: ${encuentro.medico?.nombre || 'N/A'}. Especialidad: ${encuentro.especialidad || 'N/A'}`,
+          detalles: encuentro,
+          color: '#8b5cf6'
+        })
+      })
+    }
+
+    // Eventos: Citas médicas
+    if (historiaCompleta.citas && historiaCompleta.citas.length > 0) {
+      historiaCompleta.citas.forEach((cita: any) => {
+        console.log('🔍 Procesando cita:', {
+          fechaCita: cita.fechaCita,
+          horaCita: cita.horaCita,
+          estado: cita.estado
+        })
+        
+        const estadoCita = cita.estado || 'PROGRAMADA'
+        const especialidad = cita.especialidad || 'No especificado'
+        const motivo = cita.motivo ? ` - ${cita.motivo}` : ''
+        
+        // Determinar icono y color según estado
+        let icono = '📅'
+        let color = '#f59e0b' // Amarillo para programadas
+        let estadoTexto = 'Programada'
+        
+        if (estadoCita === 'COMPLETADA') {
+          icono = '✅'
+          color = '#10b981' // Verde
+          estadoTexto = 'Completada'
+        } else if (estadoCita === 'CANCELADA') {
+          icono = '❌'
+          color = '#ef4444' // Rojo
+          estadoTexto = 'Cancelada'
+        }
+        
+        eventos.push({
+          tipo: 'CITA',
+          fecha: cita.fechaCita,
+          hora: cita.horaCita,
+          icono: icono,
+          titulo: `Cita Médica (${estadoTexto})`,
+          descripcion: `Especialidad: ${especialidad}${motivo}`,
+          detalles: cita,
+          color: color
+        })
+      })
+    }
+
+    // Ordenar por fecha y hora descendente (más reciente primero)
+    eventos.sort((a, b) => {
+      try {
+        // Normalizar fecha (extraer solo YYYY-MM-DD)
+        let fechaA = a.fecha
+        let fechaB = b.fecha
+        
+        // Convertir Date objects a string ISO
+        if (fechaA instanceof Date) {
+          fechaA = fechaA.toISOString()
+        }
+        if (fechaB instanceof Date) {
+          fechaB = fechaB.toISOString()
+        }
+        
+        if (typeof fechaA === 'string' && fechaA.includes('T')) {
+          fechaA = fechaA.split('T')[0]
+        }
+        if (typeof fechaB === 'string' && fechaB.includes('T')) {
+          fechaB = fechaB.split('T')[0]
+        }
+        
+        // Normalizar hora (extraer HH:MM o usar 00:00)
+        let horaA = '00:00:00'
+        let horaB = '00:00:00'
+        
+        if (a.hora) {
+          // Convertir Date objects a string ISO
+          let horaTemp = a.hora
+          if (horaTemp instanceof Date) {
+            horaTemp = horaTemp.toISOString()
+          }
+          
+          if (typeof horaTemp === 'string') {
+            if (horaTemp.includes('T')) {
+              // Formato ISO: extraer hora
+              const timeMatch = horaTemp.match(/T(\d{2}:\d{2}:\d{2})/)
+              horaA = timeMatch ? timeMatch[1] : '00:00:00'
+            } else {
+              // Ya es formato HH:MM:SS o HH:MM
+              horaA = horaTemp.length === 5 ? `${horaTemp}:00` : horaTemp
+            }
+          }
+        }
+        
+        if (b.hora) {
+          let horaTemp = b.hora
+          if (horaTemp instanceof Date) {
+            horaTemp = horaTemp.toISOString()
+          }
+          
+          if (typeof horaTemp === 'string') {
+            if (horaTemp.includes('T')) {
+              const timeMatch = horaTemp.match(/T(\d{2}:\d{2}:\d{2})/)
+              horaB = timeMatch ? timeMatch[1] : '00:00:00'
+            } else {
+              horaB = horaTemp.length === 5 ? `${horaTemp}:00` : horaTemp
+            }
+          }
+        }
+        
+        // Combinar fecha y hora para comparación
+        const fechaHoraA = new Date(`${fechaA}T${horaA}`).getTime()
+        const fechaHoraB = new Date(`${fechaB}T${horaB}`).getTime()
+        
+        console.log('⚖️ Comparando:', {
+          eventoA: { tipo: a.tipo, titulo: a.titulo, fecha: fechaA, hora: horaA, timestamp: fechaHoraA },
+          eventoB: { tipo: b.tipo, titulo: b.titulo, fecha: fechaB, hora: horaB, timestamp: fechaHoraB },
+          resultado: fechaHoraB - fechaHoraA
+        })
+        
+        // Retornar en orden descendente (más reciente primero)
+        return fechaHoraB - fechaHoraA
+      } catch (err) {
+        console.error('Error ordenando eventos:', err, { a, b })
+        return 0
+      }
+    })
+
+    return eventos
+  }
+
+  const timeline = construirTimeline()
+
+  if (loading) {
+    return (
+      <section className={styles["form-section"]}>
+        <div style={{ textAlign: 'center', padding: '3rem' }}>
+          <p style={{ fontSize: '1.2rem', color: 'var(--text-secondary)' }}>Cargando historia clínica...</p>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className={styles["form-section"]}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+        <button 
+          onClick={onBack}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '0.375rem',
+            cursor: 'pointer',
+            fontSize: '0.9rem'
+          }}
+        >
+          ← Volver
+        </button>
+        <h2 style={{ margin: 0 }}>Historia Clínica Completa</h2>
+      </div>
+
+      {/* Información del paciente */}
+      <div style={{ 
+        backgroundColor: 'var(--bg-tertiary)', 
+        padding: '1.5rem', 
+        borderRadius: '0.5rem', 
+        marginBottom: '2rem',
+        border: '1px solid var(--border-color)'
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Datos del Paciente</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Nro. Historia:</strong>
+            <span>{historiaCompleta?.nroHistoria || patient.nroHistoria || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Nombre Completo:</strong>
+            <span>{historiaCompleta?.apellidosNombres || patient.apellidosNombres || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>CI:</strong>
+            <span>{historiaCompleta?.ci || patient.ci || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Edad:</strong>
+            <span>{calcularEdad(historiaCompleta?.fechaNacimiento || patient.fechaNacimiento)} años</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Fecha de Nacimiento:</strong>
+            <span>{formatearFecha(historiaCompleta?.fechaNacimiento || patient.fechaNacimiento)}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Sexo:</strong>
+            <span>{(historiaCompleta?.sexo || patient.sexo) === 'M' ? 'Masculino' : 'Femenino'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Nacionalidad:</strong>
+            <span>{historiaCompleta?.nacionalidad || patient.nacionalidad || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Estado:</strong>
+            <span>{historiaCompleta?.estado || patient.estado || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Lugar de Nacimiento:</strong>
+            <span>{historiaCompleta?.lugarNacimiento || patient.lugarNacimiento || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Teléfono:</strong>
+            <span>{historiaCompleta?.telefono || patient.telefono || 'N/A'}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: '1 / -1' }}>
+            <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Dirección:</strong>
+            <span>{historiaCompleta?.direccion || patient.direccion || 'N/A'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Datos Militares */}
+      {(historiaCompleta?.personalMilitar || patient.personalMilitar) && (
+        <div style={{ 
+          backgroundColor: 'rgba(124, 58, 237, 0.1)', 
+          padding: '1.5rem', 
+          borderRadius: '0.5rem', 
+          marginBottom: '2rem',
+          border: '1px solid rgba(124, 58, 237, 0.3)'
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#7c3aed' }}>Datos Militares</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Grado:</strong>
+              <span>{(historiaCompleta?.personalMilitar || patient.personalMilitar)?.grado || 'N/A'}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Componente:</strong>
+              <span>{(historiaCompleta?.personalMilitar || patient.personalMilitar)?.componente || 'N/A'}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Unidad:</strong>
+              <span>{(historiaCompleta?.personalMilitar || patient.personalMilitar)?.unidad || 'N/A'}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Estado Militar:</strong>
+              <span>{(() => {
+                const estado = (historiaCompleta?.personalMilitar || patient.personalMilitar)?.estadoMilitar
+                if (!estado) return 'N/A'
+                if (estado === 'activo') return 'Activo'
+                if (estado === 'disponible') return 'Disponible'
+                if (estado === 'resActiva') return 'Reserva Activa'
+                return 'N/A'
+              })()}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Timeline de eventos */}
+      <div>
+        <h3 style={{ marginBottom: '1.5rem' }}>📅 Línea de Tiempo (Más Reciente Primero)</h3>
+        
+        {timeline.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '3rem', 
+            backgroundColor: 'var(--bg-tertiary)', 
+            borderRadius: '0.5rem',
+            border: '1px solid var(--border-color)'
+          }}>
+            <p style={{ color: 'var(--text-secondary)' }}>No hay eventos registrados en la historia clínica</p>
+          </div>
+        ) : (
+          <div style={{ position: 'relative' }}>
+            {/* Línea vertical del timeline */}
+            <div style={{
+              position: 'absolute',
+              left: '2rem',
+              top: '1rem',
+              bottom: '1rem',
+              width: '2px',
+              backgroundColor: 'var(--border-color)'
+            }} />
+
+            {timeline.map((evento, index) => (
+              <div 
+                key={index}
+                style={{
+                  position: 'relative',
+                  paddingLeft: '5rem',
+                  paddingBottom: '2rem'
+                }}
+              >
+                {/* Icono del evento */}
+                <div style={{
+                  position: 'absolute',
+                  left: '0.75rem',
+                  top: '0',
+                  width: '2.5rem',
+                  height: '2.5rem',
+                  backgroundColor: evento.color,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.2rem',
+                  border: '3px solid var(--bg-primary)',
+                  zIndex: 1
+                }}>
+                  {evento.icono}
+                </div>
+
+                {/* Contenido del evento */}
+                <div style={{
+                  backgroundColor: 'var(--bg-tertiary)',
+                  padding: '1.25rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid var(--border-color)',
+                  borderLeft: `4px solid ${evento.color}`
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                      {evento.titulo}
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                      <span style={{ 
+                        fontSize: '0.85rem', 
+                        color: 'var(--text-secondary)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '1rem',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {formatearFecha(evento.fecha)}
+                      </span>
+                      <span style={{ 
+                        fontSize: '0.85rem', 
+                        color: 'var(--text-secondary)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '1rem',
+                        whiteSpace: 'nowrap',
+                        fontWeight: '600',
+                        fontFamily: 'monospace'
+                      }}>
+                        🕐 {formatearHora(evento.hora)}
+                      </span>
+                    </div>
+                  </div>
+                  <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+                    {evento.descripcion}
+                  </p>
+                  
+                  {/* Detalles adicionales según tipo de evento */}
+                  {evento.detalles && evento.tipo === 'ADMISION' && (
+                    <div style={{ 
+                      marginTop: '1rem', 
+                      paddingTop: '1rem', 
+                      borderTop: '1px solid var(--border-color)',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                      gap: '0.75rem',
+                      fontSize: '0.85rem'
+                    }}>
+                      <div>
+                        <strong style={{ color: 'var(--text-secondary)' }}>Forma Ingreso:</strong>
+                        <span style={{ marginLeft: '0.5rem' }}>{evento.detalles.formaIngreso || 'N/A'}</span>
+                      </div>
+                      {evento.detalles.habitacion && (
+                        <div>
+                          <strong style={{ color: 'var(--text-secondary)' }}>Habitación:</strong>
+                          <span style={{ marginLeft: '0.5rem' }}>{evento.detalles.habitacion}</span>
+                        </div>
+                      )}
+                      {evento.detalles.cama && (
+                        <div>
+                          <strong style={{ color: 'var(--text-secondary)' }}>Cama:</strong>
+                          <span style={{ marginLeft: '0.5rem' }}>{evento.detalles.cama}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   )
 }

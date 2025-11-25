@@ -76,11 +76,8 @@ export const crearPaciente = async (
       componente,
       unidad,
       
-      // Datos de estancia hospitalaria
+      // Diagnóstico de ingreso (opcional)
       diagnosticoIngreso,
-      diagnosticoEgreso,
-      fechaAlta,
-      diasHospitalizacion,
     } = req.body;
 
     // Validar campos requeridos
@@ -139,7 +136,9 @@ export const crearPaciente = async (
         },
       });
 
-      // Crear registro de admisión
+      // Crear registro de admisión inicial
+      // NOTA: Esta es la admisión de registro. No incluye tipo/servicio específico.
+      // Para admisiones de emergencia/hospitalización, usar el endpoint de admisiones.
       const admision = await tx.admision.create({
         data: {
           pacienteId: paciente.id,
@@ -148,20 +147,13 @@ export const crearPaciente = async (
           horaAdmision: horaAdmision ? new Date(`2000-01-01T${horaAdmision}`) : null,
           habitacion: habitacion || null,
           firmaFacultativo: firmaFacultativo || null,
+          diagnosticoIngreso: diagnosticoIngreso || null,
+          // tipo y servicio se asignan cuando se usa "Registrar Admisión"
+          tipo: null,
+          servicio: null,
+          estado: 'ACTIVA',
         },
       });
-
-      // Crear datos de estancia hospitalaria si se proporcionan
-      if (diagnosticoIngreso || diagnosticoEgreso || fechaAlta) {
-        await tx.estanciaHospitalaria.create({
-          data: {
-            admisionId: admision.id,
-            fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
-            diasHosp: diasHospitalizacion ? parseInt(diasHospitalizacion) : null,
-            notas: `Diagnóstico ingreso: ${diagnosticoIngreso || 'N/A'}\nDiagnóstico egreso: ${diagnosticoEgreso || 'N/A'}`,
-          },
-        });
-      }
 
       // Crear datos militares si se proporcionan
       if (grado || estadoMilitar || componente || unidad) {
@@ -240,6 +232,11 @@ export const obtenerPaciente = async (
         personalMilitar: true,
         admisiones: true,
         encuentros: true,
+        citas: {
+          orderBy: {
+            fechaCita: 'desc',
+          },
+        },
       },
     });
 
@@ -253,7 +250,7 @@ export const obtenerPaciente = async (
 
     res.status(200).json({
       success: true,
-      data: paciente,
+      data: convertBigIntToString(paciente),
     });
   } catch (error: any) {
     logger.error('Error al obtener paciente:', error);
@@ -293,6 +290,11 @@ export const buscarPaciente = async (
           personalMilitar: true,
           admisiones: true,
           encuentros: true,
+          citas: {
+            orderBy: {
+              fechaCita: 'desc',
+            },
+          },
         },
       });
     } else if (historia) {
@@ -302,6 +304,11 @@ export const buscarPaciente = async (
           personalMilitar: true,
           admisiones: true,
           encuentros: true,
+          citas: {
+            orderBy: {
+              fechaCita: 'desc',
+            },
+          },
         },
       });
     }
