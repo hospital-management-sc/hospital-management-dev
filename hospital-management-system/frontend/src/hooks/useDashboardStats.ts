@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { API_BASE_URL } from '../utils/constants'
 
 interface DashboardStats {
   totalPacientes: number
@@ -21,11 +22,7 @@ export function useDashboardStats(refetchInterval: number = 30000): UseDashboard
   const fetchStats = async () => {
     try {
       setError(null)
-      const apiBaseUrl = window.location.hostname.includes('app.github.dev')
-        ? window.location.origin.replace('-5173.', '-3001.')
-        : 'http://localhost:3001'
-
-      const response = await fetch(`${apiBaseUrl}/api/dashboard/stats`)
+      const response = await fetch(`${API_BASE_URL}/dashboard/stats`)
       const result = await response.json()
 
       if (!response.ok) {
