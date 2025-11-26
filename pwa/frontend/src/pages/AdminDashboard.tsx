@@ -7,13 +7,13 @@ import { useState, useEffect } from 'react'
 import styles from './AdminDashboard.module.css'
 import { useDashboardStats } from '../hooks/useDashboardStats'
 import RegistrarAdmision from '../components/RegistrarAdmision'
-import EncuentrosList from '../components/EncuentrosList'
+import PacientesHospitalizados from '../components/PacientesHospitalizados'
 import EncuentroDetailModal from '../components/EncuentroDetailModal'
 import { encuentrosService } from '../services/encuentros.service'
 import type { Encuentro } from '../services/encuentros.service'
 import { API_BASE_URL } from '../utils/constants'
 
-type ViewMode = 'main' | 'register-patient' | 'create-appointment' | 'search-patient' | 'register-admission' | 'patient-history'
+type ViewMode = 'main' | 'register-patient' | 'create-appointment' | 'search-patient' | 'register-admission' | 'patient-history' | 'hospitalized-patients'
 
 export default function AdminDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('main')
@@ -113,6 +113,19 @@ export default function AdminDashboard() {
               <span className={styles['btn-description']}>Registre ingresos hospitalarios y asignaciones</span>
             </div>
           </button>
+          <button 
+            className={styles['admin-btn']}
+            onClick={() => setViewMode('hospitalized-patients')}
+          >
+            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <div className={styles['btn-content']}>
+              <span className={styles['btn-title']}>Pacientes Hospitalizados</span>
+              <span className={styles['btn-description']}>Visualice pacientes actualmente internados</span>
+            </div>
+          </button>
         </div>
       </section>
     </>
@@ -154,6 +167,7 @@ export default function AdminDashboard() {
           />
         )}
         {viewMode === 'register-admission' && <RegistrarAdmision onBack={() => setViewMode('main')} />}
+        {viewMode === 'hospitalized-patients' && <PacientesHospitalizados onBack={() => setViewMode('main')} />}
         {viewMode === 'patient-history' && selectedPatientForHistory && (
           <PatientHistoryView 
             patient={selectedPatientForHistory}
@@ -1764,18 +1778,40 @@ function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => v
       })
     }
 
-    // Eventos: Encuentros médicos
-    if (historiaCompleta.encuentros && historiaCompleta.encuentros.length > 0) {
-      historiaCompleta.encuentros.forEach((encuentro: any) => {
+    // Eventos: Encuentros médicos (atenciones reales)
+    if (encuentros && encuentros.length > 0) {
+      encuentros.forEach((encuentro: any) => {
+        // Determinar icono y color según tipo de encuentro
+        let icono = '⚕️'
+        let color = '#8b5cf6'
+        
+        if (encuentro.tipo === 'EMERGENCIA') {
+          icono = '🚨'
+          color = '#ef4444'
+        } else if (encuentro.tipo === 'HOSPITALIZACION') {
+          icono = '🛏️'
+          color = '#3b82f6'
+        } else if (encuentro.tipo === 'CONSULTA') {
+          icono = '🩺'
+          color = '#10b981'
+        }
+        
+        const medicoNombre = encuentro.createdBy?.nombre || 'Médico no registrado'
+        const motivoTexto = encuentro.motivoConsulta ? ` - ${encuentro.motivoConsulta.substring(0, 50)}...` : ''
+        const diagnostico = encuentro.impresiones && encuentro.impresiones.length > 0 
+          ? encuentro.impresiones[0].descripcion 
+          : 'Sin diagnóstico'
+        
         eventos.push({
           tipo: 'ENCUENTRO',
-          fecha: encuentro.fechaEncuentro,
-          hora: encuentro.horaEncuentro || encuentro.createdAt,
-          icono: '⚕️',
-          titulo: `Consulta: ${encuentro.tipoEncuentro || 'N/A'}`,
-          descripcion: `Médico: ${encuentro.medico?.nombre || 'N/A'}. Especialidad: ${encuentro.especialidad || 'N/A'}`,
+          fecha: encuentro.fecha,
+          hora: encuentro.hora || encuentro.createdAt,
+          icono: icono,
+          titulo: `Encuentro Médico: ${encuentro.tipo}`,
+          descripcion: `Médico: ${medicoNombre}${motivoTexto}`,
           detalles: encuentro,
-          color: '#8b5cf6'
+          color: color,
+          diagnostico: diagnostico
         })
       })
     }
@@ -2126,6 +2162,40 @@ function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => v
                   </p>
                   
                   {/* Detalles adicionales según tipo de evento */}
+                  {evento.detalles && evento.tipo === 'ENCUENTRO' && (
+                    <div style={{ 
+                      marginTop: '1rem', 
+                      paddingTop: '1rem', 
+                      borderTop: '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem',
+                      fontSize: '0.85rem'
+                    }}>
+                      {evento.diagnostico && (
+                        <div>
+                          <strong style={{ color: 'var(--text-secondary)' }}>Diagnóstico:</strong>
+                          <span style={{ marginLeft: '0.5rem' }}>{evento.diagnostico}</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleVerDetalleEncuentro(evento.detalles)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '0.375rem',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          alignSelf: 'flex-start'
+                        }}
+                      >
+                        Ver detalle completo del encuentro →
+                      </button>
+                    </div>
+                  )}
                   {evento.detalles && evento.tipo === 'ADMISION' && (
                     <div style={{ 
                       marginTop: '1rem', 
@@ -2158,27 +2228,6 @@ function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => v
               </div>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Sección de Encuentros Médicos */}
-      <div style={{ marginTop: '3rem' }}>
-        <h3 style={{ marginBottom: '1.5rem' }}>🩺 Encuentros Médicos</h3>
-        {loadingEncuentros ? (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '2rem', 
-            backgroundColor: 'var(--bg-tertiary)', 
-            borderRadius: '0.5rem',
-            border: '1px solid var(--border-color)'
-          }}>
-            <p style={{ color: 'var(--text-secondary)' }}>Cargando encuentros...</p>
-          </div>
-        ) : (
-          <EncuentrosList 
-            encuentros={encuentros} 
-            onVerDetalle={handleVerDetalleEncuentro}
-          />
         )}
       </div>
 
