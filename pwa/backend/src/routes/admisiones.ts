@@ -5,6 +5,7 @@ import {
   listarAdmisionesPaciente,
   actualizarAdmision,
   registrarAlta,
+  activarAdmision,
   listarAdmisionesActivas,
   listarAdmisionesPorServicio,
 } from '../controllers/admisiones';
@@ -54,6 +55,13 @@ router.get('/:id', obtenerAdmision);
  * @access  Private (Administrativo)
  */
 router.put('/:id', actualizarAdmision);
+
+/**
+ * @route   PATCH /api/admisiones/:id/activar
+ * @desc    Activar una admisión que está en espera
+ * @access  Private (Administrativo)
+ */
+router.patch('/:id/activar', activarAdmision);
 
 /**
  * @route   PATCH /api/admisiones/:id/alta

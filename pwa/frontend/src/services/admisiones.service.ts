@@ -104,6 +104,13 @@ const admisionesService = {
   },
 
   /**
+   * Activar una admisión que está en espera
+   */
+  activarAdmision: async (id: string) => {
+    return await apiService.patch<{ message: string; admision: Admision }>(`/admisiones/${id}/activar`, {});
+  },
+
+  /**
    * Listar pacientes hospitalizados actualmente
    */
   listarAdmisionesActivas: async (filters?: { servicio?: string; tipo?: string }) => {

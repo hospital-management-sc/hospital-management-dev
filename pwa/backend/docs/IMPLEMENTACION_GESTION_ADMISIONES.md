@@ -6,12 +6,19 @@
 
 #### 1. Controlador de Admisiones
 **Archivo:** `backend/src/controllers/admisiones.ts`
-- ✅ `crearAdmision`: Crear nueva admisión (EMERGENCIA o HOSPITALIZACION)
+- ✅ `crearAdmision`: Crear nueva admisión (EMERGENCIA, HOSPITALIZACION, UCI, CIRUGIA, CONSULTA_EXTERNA)
+  - **LÓGICA DE ESTADOS**: 
+    - `CONSULTA_EXTERNA` → Estado inicial: `EN_ESPERA` (no requiere hospitalización)
+    - `EMERGENCIA`, `HOSPITALIZACION`, `UCI`, `CIRUGIA` → Estado inicial: `ACTIVA` (hospitalizados)
 - ✅ `obtenerAdmision`: Obtener admisión por ID
 - ✅ `listarAdmisionesPaciente`: Listar admisiones de un paciente
 - ✅ `actualizarAdmision`: Actualizar datos de admisión
+- ✅ `activarAdmision`: ⭐ **NUEVO** - Activar admisión en estado EN_ESPERA
 - ✅ `registrarAlta`: Registrar alta médica
 - ✅ `listarAdmisionesActivas`: Listar admisiones activas (hospitalizados)
+  - **FILTRO INTELIGENTE**: Solo muestra tipos que requieren hospitalización física
+  - Excluye automáticamente: `CONSULTA_EXTERNA`
+  - Incluye: `EMERGENCIA`, `HOSPITALIZACION`, `UCI`, `CIRUGIA`
 - ✅ `listarAdmisionesPorServicio`: Listar admisiones por servicio
 
 #### 2. Rutas de Admisiones
@@ -20,6 +27,7 @@
 - ✅ `GET /api/admisiones/:id` - Obtener admisión
 - ✅ `GET /api/admisiones/paciente/:pacienteId` - Listar admisiones de paciente
 - ✅ `PUT /api/admisiones/:id` - Actualizar admisión
+- ✅ `PATCH /api/admisiones/:id/activar` - ⭐ **NUEVO** - Activar admisión
 - ✅ `PATCH /api/admisiones/:id/alta` - Registrar alta
 - ✅ `GET /api/admisiones/activas` - Listar admisiones activas
 - ✅ `GET /api/admisiones/servicio/:servicio` - Listar por servicio
@@ -29,23 +37,71 @@
 - ✅ Importación de rutas de admisiones
 - ✅ Registro de rutas: `app.use('/api/admisiones', admisionesRoutes)`
 
+---
+
+### 🔄 Cambios Recientes - Lógica de Estados (27/11/2025)
+
+#### Problema Identificado
+Todas las admisiones se creaban con estado `ACTIVA`, causando que pacientes de consulta externa aparecieran como "hospitalizados".
+
+#### Solución Implementada
+
+**1. Diferenciación por Tipo de Admisión**
+```typescript
+// Backend: crearAdmision()
+const estadoInicial = tipo === 'CONSULTA_EXTERNA' ? 'EN_ESPERA' : 'ACTIVA';
+```
+
+**2. Filtro Inteligente para Hospitalizados**
+```typescript
+// Backend: listarAdmisionesActivas()
+tipo: {
+  in: ['EMERGENCIA', 'HOSPITALIZACION', 'UCI', 'CIRUGIA']
+}
+```
+
+**3. Nuevo Endpoint de Activación**
+- Permite activar manualmente admisiones en `EN_ESPERA`
+- Útil para consultas externas que requieren hospitalización posterior
+
+#### Estados Disponibles
+- `EN_ESPERA`: Admisión pendiente (ej: consulta externa programada)
+- `ACTIVA`: Paciente hospitalizado actualmente ⭐
+- `ALTA`: Paciente dado de alta
+- `TRANSFERIDO`: Transferido a otro servicio/hospital
+- `FALLECIDO`: Paciente fallecido
+- `CANCELADA`: Admisión cancelada
+
+---
+
 ### Frontend (100%)
 
 #### 1. Servicio de Admisiones
 **Archivo:** `frontend/src/services/admisiones.service.ts`
 - ✅ Tipos TypeScript: `CrearAdmisionDTO`, `ActualizarAdmisionDTO`, `RegistrarAltaDTO`, `Admision`
-- ✅ 7 métodos para consumir el API del backend
+- ✅ 8 métodos para consumir el API del backend
+- ✅ ⭐ **NUEVO**: `activarAdmision()` - Activar admisión en espera
 - ✅ Integrado con `apiService` para manejo de headers y errores
 
-#### 2. Servicio de Pacientes
+#### 2. Componente Pacientes Hospitalizados
+**Archivo:** `frontend/src/components/PacientesHospitalizados.tsx`
+- ✅ **ACTUALIZADO**: Soporte para tipos UCI y CIRUGIA
+- ✅ Filtros mejorados con todos los tipos de hospitalización
+- ✅ Visualización diferenciada por tipo:
+  - 🚨 Emergencia (rojo)
+  - 🏥 Hospitalización (azul)
+  - 🏥 UCI (crítico)
+  - ⚕️ Cirugía (verde)
+
+#### 3. Servicio de Pacientes
 **Archivo:** `frontend/src/services/pacientes.service.ts`
 - ✅ Tipo TypeScript: `Paciente`
 - ✅ `buscarPorCI`: Buscar paciente por cédula
 - ✅ `buscarPorId`: Buscar paciente por ID
 
-#### 3. Componente Registrar Admisión
+#### 4. Componente Registrar Admisión
 **Archivo:** `frontend/src/components/RegistrarAdmision.tsx` (380 líneas)
-- ✅ Selección de tipo de admisión (EMERGENCIA o HOSPITALIZACION)
+- ✅ Selección de tipo de admisión (EMERGENCIA, HOSPITALIZACION, UCI, CIRUGIA, CONSULTA_EXTERNA)
 - ✅ Búsqueda de paciente por CI
 - ✅ Visualización de datos del paciente seleccionado
 - ✅ Formulario de admisión con validaciones

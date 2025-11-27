@@ -40,6 +40,10 @@ export const crearAdmision = async (req: Request, res: Response) => {
       });
     }
 
+    // Determinar estado inicial según tipo de admisión
+    // CONSULTA_EXTERNA no requiere hospitalización, los demás sí
+    const estadoInicial = tipo === 'CONSULTA_EXTERNA' ? 'EN_ESPERA' : 'ACTIVA';
+
     // Crear la admisión
     const admision = await prisma.admision.create({
       data: {
@@ -51,7 +55,7 @@ export const crearAdmision = async (req: Request, res: Response) => {
         formaIngreso: formaIngreso || null,
         habitacion: habitacion || null,
         cama: cama || null,
-        estado: 'ACTIVA',
+        estado: estadoInicial,
         observaciones: observaciones || null,
         createdById: createdById ? BigInt(createdById) : null,
       },
@@ -397,6 +401,84 @@ export const registrarAlta = async (req: Request, res: Response) => {
 };
 
 /**
+ * Activar una admisión que está en estado EN_ESPERA
+ * PATCH /api/admisiones/:id/activar
+ */
+export const activarAdmision = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que la admisión existe
+    const admisionExistente = await prisma.admision.findUnique({
+      where: { id: BigInt(id) },
+    });
+
+    if (!admisionExistente) {
+      return res.status(404).json({
+        error: 'Admisión no encontrada',
+      });
+    }
+
+    if (admisionExistente.estado === 'ACTIVA') {
+      return res.status(400).json({
+        error: 'La admisión ya está activa',
+      });
+    }
+
+    if (admisionExistente.estado === 'ALTA') {
+      return res.status(400).json({
+        error: 'La admisión ya tiene alta registrada',
+      });
+    }
+
+    // Activar la admisión
+    const admisionActualizada = await prisma.admision.update({
+      where: { id: BigInt(id) },
+      data: {
+        estado: 'ACTIVA',
+      },
+      include: {
+        paciente: {
+          select: {
+            id: true,
+            nroHistoria: true,
+            apellidosNombres: true,
+            ci: true,
+            fechaNacimiento: true,
+            sexo: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            nombre: true,
+            cargo: true,
+          },
+        },
+      },
+    });
+
+    // Serializar BigInt a string
+    const admisionSerializada = JSON.parse(
+      JSON.stringify(admisionActualizada, (_key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      )
+    );
+
+    return res.status(200).json({
+      message: 'Admisión activada exitosamente',
+      admision: admisionSerializada,
+    });
+  } catch (error) {
+    console.error('Error al activar admisión:', error);
+    return res.status(500).json({
+      error: 'Error al activar admisión',
+      details: error instanceof Error ? error.message : 'Error desconocido',
+    });
+  }
+};
+
+/**
  * Listar pacientes hospitalizados actualmente (admisiones activas)
  * GET /api/admisiones/activas
  */
@@ -406,12 +488,17 @@ export const listarAdmisionesActivas = async (req: Request, res: Response) => {
 
     const filtros: any = {
       estado: 'ACTIVA',
+      // Solo admisiones que requieren hospitalización física
+      tipo: {
+        in: ['EMERGENCIA', 'HOSPITALIZACION', 'UCI', 'CIRUGIA'],
+      },
     };
 
     if (servicio) {
       filtros.servicio = servicio as string;
     }
 
+    // Si se especifica un tipo, sobrescribir el filtro
     if (tipo) {
       filtros.tipo = tipo as string;
     }

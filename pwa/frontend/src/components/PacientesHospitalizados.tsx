@@ -29,6 +29,8 @@ const TIPOS = [
   { value: '', label: 'Todos los tipos' },
   { value: 'EMERGENCIA', label: 'Emergencia' },
   { value: 'HOSPITALIZACION', label: 'Hospitalización' },
+  { value: 'UCI', label: 'UCI' },
+  { value: 'CIRUGIA', label: 'Cirugía' },
 ];
 
 export default function PacientesHospitalizados({ onBack }: PacientesHospitalizadosProps) {
@@ -217,10 +219,22 @@ export default function PacientesHospitalizados({ onBack }: PacientesHospitaliza
                     <td>
                       <span
                         className={`${styles.badge} ${
-                          admision.tipo === 'EMERGENCIA' ? styles.badgeEmergencia : styles.badgeHospitalizacion
+                          admision.tipo === 'EMERGENCIA' 
+                            ? styles.badgeEmergencia 
+                            : admision.tipo === 'UCI'
+                            ? styles.badgeUCI
+                            : admision.tipo === 'CIRUGIA'
+                            ? styles.badgeCirugia
+                            : styles.badgeHospitalizacion
                         }`}
                       >
-                        {admision.tipo === 'EMERGENCIA' ? '🚨 Emergencia' : '🏥 Hospitalización'}
+                        {admision.tipo === 'EMERGENCIA' 
+                          ? '🚨 Emergencia' 
+                          : admision.tipo === 'UCI'
+                          ? '🏥 UCI'
+                          : admision.tipo === 'CIRUGIA'
+                          ? '⚕️ Cirugía'
+                          : '🏥 Hospitalización'}
                       </span>
                     </td>
                     <td>
