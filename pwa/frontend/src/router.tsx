@@ -6,6 +6,7 @@ import Login from '@pages/Login'
 import Register from '@pages/Register'
 import DoctorDashboard from '@pages/DoctorDashboard'
 import AdminDashboard from '@pages/AdminDashboard'
+import SuperAdminDashboard from '@pages/SuperAdminDashboard'
 import ProtectedRoute from '@components/ProtectedRoute'
 
 export default function Router() {
@@ -33,7 +34,9 @@ export default function Router() {
             path="/dashboard"
             element={
               user ? (
-                user.role === 'ADMIN' ? (
+                user.role === 'SUPER_ADMIN' ? (
+                  <Navigate to="/dashboard/superadmin" replace />
+                ) : user.role === 'ADMIN' ? (
                   <Navigate to="/dashboard/admin" replace />
                 ) : (
                   <Navigate to="/dashboard/medico" replace />
@@ -41,6 +44,16 @@ export default function Router() {
               ) : (
                 <Navigate to="/login" replace />
               )
+            }
+          />
+
+          {/* Dashboard Super Admin - Para SUPER_ADMIN (Gestión de Whitelist) */}
+          <Route
+            path="/dashboard/superadmin"
+            element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <SuperAdminDashboard />
+              </ProtectedRoute>
             }
           />
           

@@ -84,7 +84,7 @@ export const loginUser = async (payload: LoginPayload): Promise<TokenResponse> =
 
   // Validation
   if (!email || !password) {
-    throw new ValidationError('Email and password are required');
+    throw new ValidationError('El correo electrónico y la contraseña son requeridos');
   }
 
   // Find user by email
@@ -94,7 +94,7 @@ export const loginUser = async (payload: LoginPayload): Promise<TokenResponse> =
 
   if (!user) {
     logger.warn(`Login attempt with non-existent email: ${email}`);
-    throw new UnauthorizedError('Invalid email or password');
+    throw new UnauthorizedError('Credenciales inválidas. Verifique su correo electrónico y contraseña.');
   }
 
   // Compare passwords
@@ -102,7 +102,7 @@ export const loginUser = async (payload: LoginPayload): Promise<TokenResponse> =
 
   if (!isPasswordValid) {
     logger.warn(`Failed login attempt for user: ${email}`);
-    throw new UnauthorizedError('Invalid email or password');
+    throw new UnauthorizedError('Credenciales inválidas. Verifique su correo electrónico y contraseña.');
   }
 
   // Generate token

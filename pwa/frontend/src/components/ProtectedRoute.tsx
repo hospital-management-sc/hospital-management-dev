@@ -19,10 +19,13 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   if (!allowedRoles.includes(user.role)) {
     // Redirigir al dashboard correcto según su rol
-    if (user.role === 'MEDICO') {
-      return <Navigate to="/dashboard/medico" replace />
+    if (user.role === 'SUPER_ADMIN') {
+      return <Navigate to="/dashboard/superadmin" replace />
     }
-    return <Navigate to="/dashboard/admin" replace />
+    if (user.role === 'ADMIN') {
+      return <Navigate to="/dashboard/admin" replace />
+    }
+    return <Navigate to="/dashboard/medico" replace />
   }
 
   return <>{children}</>

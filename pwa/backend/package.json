@@ -4,6 +4,7 @@
   "description": "Backend para PWA de Gestión Clínica y Administrativa - Hospital Militar Tipo I",
   "main": "dist/index.js",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
