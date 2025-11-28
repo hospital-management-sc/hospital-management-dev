@@ -2,12 +2,18 @@
  * Authentication Service
  * 
  * Handles user authentication logic: login, register, token generation
+ * 
+ * SEGURIDAD CRÍTICA:
+ * - El registro SOLO es posible para personal pre-autorizado en la whitelist
+ * - Se valida CI, nombre y rol contra la tabla PersonalAutorizado
+ * - Todas las operaciones se registran en auditoría
  */
 
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { getPrismaClient } from '../database/connection';
 import { ValidationError, UnauthorizedError } from '../types/responses';
+import { verifyAuthorizedPersonnel, markAsRegistered, VALID_ROLES } from './authorizedPersonnel';
 import config from '../config';
 import logger from '../utils/logger';
 
@@ -115,30 +121,67 @@ export const loginUser = async (payload: LoginPayload): Promise<TokenResponse> =
 
 /**
  * Register new user
+ * 
+ * SISTEMA DE SEGURIDAD (WHITELIST):
+ * 1. Verifica que el CI exista en la tabla PersonalAutorizado
+ * 2. Verifica que el personal esté ACTIVO y no haya vencido
+ * 3. Verifica que el nombre coincida con los registros
+ * 4. Verifica que el rol solicitado sea el autorizado
+ * 5. Solo si todas las validaciones pasan, crea la cuenta
  */
 export const registerUser = async (payload: RegisterPayload): Promise<TokenResponse> => {
   const { nombre, email, password, ci, role } = payload;
 
-  // Validation
+  // ============================================
+  // VALIDACIONES BÁSICAS DE FORMATO
+  // ============================================
+  
   if (!nombre || !email || !password || !ci) {
-    throw new ValidationError('Name, email, C.I., and password are required');
+    throw new ValidationError('Nombre, email, C.I. y contraseña son requeridos');
   }
 
   if (password.length < 6) {
-    throw new ValidationError('Password must be at least 6 characters long');
-  }
-
-  // Validate role
-  const validRoles = ['MEDICO', 'ADMIN', 'USUARIO'];
-  if (role && !validRoles.includes(role)) {
-    throw new ValidationError('Invalid role. Must be one of: MEDICO, ADMIN');
+    throw new ValidationError('La contraseña debe tener al menos 6 caracteres');
   }
 
   // Validate C.I. format (Venezuelan ID: Letter V/E/P + 7-9 digits)
   const ciRegex = /^[VEP]\d{7,9}$/;
-  if (!ciRegex.test(ci)) {
-    throw new ValidationError('Invalid C.I. format. Must start with V, E, or P followed by 7-9 digits (Example: V12345678)');
+  const ciNormalized = ci.toUpperCase();
+  if (!ciRegex.test(ciNormalized)) {
+    throw new ValidationError('Formato de C.I. inválido. Debe comenzar con V, E o P seguido de 7-9 dígitos (Ejemplo: V12345678)');
   }
+
+  // Validate role format
+  const roleToUse = role || 'MEDICO';
+  if (!VALID_ROLES.includes(roleToUse as any)) {
+    throw new ValidationError(`Rol inválido. Roles válidos: ${VALID_ROLES.join(', ')}`);
+  }
+
+  // ============================================
+  // VERIFICACIÓN DE WHITELIST (CRÍTICO)
+  // ============================================
+  
+  logger.info(`[AUTH] Iniciando verificación de whitelist para CI: ${ciNormalized}`);
+  
+  const verificationResult = await verifyAuthorizedPersonnel(
+    ciNormalized,
+    nombre,
+    roleToUse
+  );
+
+  // Si no está autorizado, RECHAZAR el registro
+  if (!verificationResult.isAuthorized) {
+    logger.security(`[AUTH] Registro RECHAZADO para ${ciNormalized}: ${verificationResult.errorCode}`);
+    throw new UnauthorizedError(
+      verificationResult.errorMessage || 'No está autorizado para registrarse en el sistema'
+    );
+  }
+
+  logger.info(`[AUTH] Verificación de whitelist EXITOSA para: ${ciNormalized}`);
+
+  // ============================================
+  // VALIDACIONES DE UNICIDAD EN BASE DE DATOS
+  // ============================================
 
   // Check if email already exists
   const existingUser = await prisma.usuario.findUnique({
@@ -146,38 +189,68 @@ export const registerUser = async (payload: RegisterPayload): Promise<TokenRespo
   });
 
   if (existingUser) {
-    throw new ValidationError('Email is already registered');
+    throw new ValidationError('Este email ya está registrado en el sistema');
   }
 
-  // Check if CI already exists (if provided)
-  if (ci) {
-    const userWithCi = await prisma.usuario.findUnique({
-      where: { ci },
-    });
+  // Check if CI already exists
+  const userWithCi = await prisma.usuario.findUnique({
+    where: { ci: ciNormalized },
+  });
 
-    if (userWithCi) {
-      throw new ValidationError('CI is already registered');
-    }
+  if (userWithCi) {
+    throw new ValidationError('Esta cédula ya está registrada en el sistema');
   }
+
+  // ============================================
+  // CREACIÓN DE USUARIO
+  // ============================================
 
   // Hash password
   const hashedPassword = await hashPassword(password);
 
-  // Create user
+  // Get additional data from whitelist record
+  const personnelRecord = verificationResult.personnelRecord;
+
+  // Create user with data from whitelist
   const newUser = await prisma.usuario.create({
     data: {
-      nombre,
+      nombre: personnelRecord?.nombreCompleto || nombre, // Usar nombre oficial de la whitelist
       email: email.toLowerCase(),
       password: hashedPassword,
-      ci: ci || null,
-      role: role || 'USUARIO', // Default role
+      ci: ciNormalized,
+      role: personnelRecord?.rolAutorizado || roleToUse, // Usar rol de la whitelist
+      cargo: personnelRecord?.cargo || null,
+    },
+  });
+
+  // ============================================
+  // ACTUALIZAR WHITELIST Y AUDITORÍA
+  // ============================================
+
+  // Mark as registered in whitelist
+  await markAsRegistered(ciNormalized, newUser.id);
+
+  // Register in audit log
+  await prisma.auditLog.create({
+    data: {
+      tabla: 'Usuario',
+      registroId: newUser.id,
+      usuarioId: newUser.id,
+      accion: 'REGISTER',
+      detalle: {
+        ci: ciNormalized,
+        email: email.toLowerCase(),
+        role: newUser.role,
+        whitelistVerified: true,
+        personalAutorizadoId: personnelRecord?.id ? Number(personnelRecord.id) : null,
+      },
     },
   });
 
   // Generate token
   const token = generateToken(Number(newUser.id), newUser.email || '', newUser.role || '');
 
-  logger.info(`New user registered: ${email}`);
+  logger.info(`[AUTH] Nuevo usuario registrado exitosamente: ${email} (CI: ${ciNormalized})`);
 
   return {
     id: Number(newUser.id),

@@ -13,86 +13,179 @@ const hashPassword = async (password: string): Promise<string> => {
 
 /**
  * Main seed function
- * Add your database seed logic here
  * 
- * Examples:
- * - Create initial users/roles
- * - Create test data
- * - Initialize lookup tables
+ * IMPORTANTE: Este seed crea:
+ * 1. Un SUPER_ADMIN inicial (único usuario que NO requiere whitelist)
+ * 2. Registros de prueba en PersonalAutorizado (whitelist)
+ * 
+ * En producción, solo el SUPER_ADMIN se crea via seed.
+ * Todo el demás personal debe ser agregado a la whitelist primero.
  */
 async function main() {
   console.log('🌱 Starting database seed...');
+  console.log('🔐 Sistema de Whitelist de Personal Autorizado habilitado\n');
 
   try {
-    // Create test users
-    const adminPassword = await hashPassword('admin123456');
-    const doctorPassword = await hashPassword('doctor123456');
-    const userPassword = await hashPassword('user123456');
+    // ============================================
+    // PASO 1: Crear SUPER_ADMIN (única excepción al whitelist)
+    // ============================================
+    console.log('📋 Paso 1: Creando SUPER_ADMIN inicial...');
+    
+    const superAdminPassword = await hashPassword('SuperAdmin2024!');
+    
+    // Verificar si ya existe un SUPER_ADMIN
+    const existingSuperAdmin = await prisma.usuario.findFirst({
+      where: { role: 'SUPER_ADMIN' },
+    });
 
-    // Delete existing users (for testing purposes)
-    await prisma.usuario.deleteMany();
+    let superAdmin;
+    if (!existingSuperAdmin) {
+      superAdmin = await prisma.usuario.create({
+        data: {
+          nombre: 'Super Administrador del Sistema',
+          email: 'superadmin@hospital.com',
+          password: superAdminPassword,
+          ci: 'V00000001',
+          cargo: 'Administrador General del Sistema',
+          role: 'SUPER_ADMIN',
+        },
+      });
+      console.log('✅ SUPER_ADMIN creado:', superAdmin.email);
+      
+      // Crear registro en PersonalAutorizado para el SUPER_ADMIN (ya registrado)
+      await prisma.personalAutorizado.create({
+        data: {
+          ci: 'V00000001',
+          nombreCompleto: 'Super Administrador del Sistema',
+          email: 'superadmin@hospital.com',
+          rolAutorizado: 'SUPER_ADMIN',
+          departamento: 'Sistemas',
+          cargo: 'Administrador General del Sistema',
+          estado: 'ACTIVO',
+          fechaIngreso: new Date(),
+          autorizadoPor: 'Sistema (Seed Inicial)',
+          registrado: true,
+          fechaRegistro: new Date(),
+          usuarioId: superAdmin.id,
+        },
+      });
+    } else {
+      console.log('ℹ️  SUPER_ADMIN ya existe:', existingSuperAdmin.email);
+      superAdmin = existingSuperAdmin;
+    }
 
-    // Create admin user
-    const admin = await prisma.usuario.create({
-      data: {
-        nombre: 'Administrador Sistema',
-        email: 'admin@hospital.com',
-        password: adminPassword,
+    // ============================================
+    // PASO 2: Crear Personal Autorizado de prueba (Whitelist)
+    // ============================================
+    console.log('\n📋 Paso 2: Creando Personal Autorizado de prueba (whitelist)...');
+    
+    // Limpiar registros de prueba existentes (excepto SUPER_ADMIN)
+    await prisma.personalAutorizado.deleteMany({
+      where: {
+        ci: {
+          not: 'V00000001',
+        },
+      },
+    });
+
+    // Personal autorizado de prueba que AÚN NO se ha registrado
+    const personalAutorizadoPrueba = [
+      {
         ci: 'V12345678',
-        cargo: 'Administrador',
-        role: 'ADMIN',
-      },
-    });
-    console.log('✅ Admin user created:', admin.email);
-
-    // Create doctor user
-    const doctor = await prisma.usuario.create({
-      data: {
-        nombre: 'Dr. Carlos García',
+        nombreCompleto: 'Dr. Carlos Eduardo García Méndez',
         email: 'carlos.garcia@hospital.com',
-        password: doctorPassword,
+        rolAutorizado: 'MEDICO',
+        departamento: 'Medicina Interna',
+        cargo: 'Médico Internista',
+        fechaIngreso: new Date('2020-01-15'),
+        autorizadoPor: 'RRHH - María González',
+      },
+      {
         ci: 'V87654321',
-        cargo: 'Médico General',
-        role: 'MEDICO',
-      },
-    });
-    console.log('✅ Doctor user created:', doctor.email);
-
-    // Create nurse user
-    const nurse = await prisma.usuario.create({
-      data: {
-        nombre: 'Lic. María López',
+        nombreCompleto: 'Lic. María Elena López Rodríguez',
         email: 'maria.lopez@hospital.com',
-        password: userPassword,
+        rolAutorizado: 'ENFERMERO',
+        departamento: 'Emergencia',
+        cargo: 'Enfermera Jefe',
+        fechaIngreso: new Date('2019-06-01'),
+        autorizadoPor: 'RRHH - María González',
+      },
+      {
         ci: 'V11223344',
-        cargo: 'Enfermera',
-        role: 'ENFERMERO',
-      },
-    });
-    console.log('✅ Nurse user created:', nurse.email);
-
-    // Create regular user
-    const regularUser = await prisma.usuario.create({
-      data: {
-        nombre: 'Juan Pérez',
+        nombreCompleto: 'Juan Alberto Pérez Ramírez',
         email: 'juan.perez@hospital.com',
-        password: userPassword,
-        ci: 'V55667788',
-        cargo: 'Personal Administrativo',
-        role: 'USUARIO',
+        rolAutorizado: 'ADMIN',
+        departamento: 'Admisiones',
+        cargo: 'Coordinador de Admisiones',
+        fechaIngreso: new Date('2021-03-10'),
+        autorizadoPor: 'RRHH - María González',
       },
-    });
-    console.log('✅ Regular user created:', regularUser.email);
+      {
+        ci: 'V55667788',
+        nombreCompleto: 'Dra. Ana Sofía Martínez Duarte',
+        email: 'ana.martinez@hospital.com',
+        rolAutorizado: 'COORDINADOR',
+        departamento: 'Cirugía General',
+        cargo: 'Coordinadora del Servicio',
+        fechaIngreso: new Date('2018-09-20'),
+        autorizadoPor: 'RRHH - María González',
+      },
+      {
+        ci: 'V99887766',
+        nombreCompleto: 'Roberto José Hernández Blanco',
+        email: 'roberto.hernandez@hospital.com',
+        rolAutorizado: 'ADMIN',
+        departamento: 'Administración',
+        cargo: 'Asistente Administrativo',
+        fechaIngreso: new Date('2022-07-01'),
+        autorizadoPor: 'RRHH - María González',
+      },
+    ];
 
-    console.log('\n🎯 Test User Credentials:');
-    console.log('Admin    - admin@hospital.com / admin123456');
-    console.log('Doctor   - carlos.garcia@hospital.com / doctor123456');
-    console.log('Nurse    - maria.lopez@hospital.com / user123456');
-    console.log('User     - juan.perez@hospital.com / user123456');
+    for (const personal of personalAutorizadoPrueba) {
+      await prisma.personalAutorizado.create({
+        data: {
+          ...personal,
+          estado: 'ACTIVO',
+          registrado: false, // AÚN NO se han registrado en la app
+        },
+      });
+      console.log(`   ✅ Autorizado: ${personal.nombreCompleto} (${personal.ci}) - ${personal.rolAutorizado}`);
+    }
 
-    console.log('\n✅ Seed completed successfully');
+    // ============================================
+    // PASO 3: Mostrar resumen
+    // ============================================
+    console.log('\n' + '='.repeat(60));
+    console.log('🎯 RESUMEN DEL SEED');
+    console.log('='.repeat(60));
+    
+    console.log('\n🔑 CREDENCIALES SUPER_ADMIN:');
+    console.log('   Email:    superadmin@hospital.com');
+    console.log('   Password: SuperAdmin2024!');
+    console.log('   Rol:      SUPER_ADMIN');
+    
+    console.log('\n📋 PERSONAL AUTORIZADO PARA REGISTRO (whitelist):');
+    console.log('   Estos usuarios pueden registrarse en la app:');
+    console.log('   ─────────────────────────────────────────────');
+    for (const personal of personalAutorizadoPrueba) {
+      console.log(`   • ${personal.ci} - ${personal.nombreCompleto}`);
+      console.log(`     Rol: ${personal.rolAutorizado} | Email sugerido: ${personal.email}`);
+    }
+
+    console.log('\n⚠️  IMPORTANTE:');
+    console.log('   - Cualquier usuario que intente registrarse sin estar');
+    console.log('     en la whitelist será RECHAZADO automáticamente.');
+    console.log('   - El SUPER_ADMIN debe agregar personal a la whitelist');
+    console.log('     vía POST /api/authorized-personnel antes de que');
+    console.log('     puedan registrarse.');
+    console.log('   - El nombre y CI deben coincidir EXACTAMENTE con la whitelist.');
+
+    console.log('\n✅ Seed completado exitosamente');
+    console.log('='.repeat(60));
+
   } catch (error) {
-    console.error('❌ Seed error:', error);
+    console.error('❌ Error en seed:', error);
     throw error;
   }
 }

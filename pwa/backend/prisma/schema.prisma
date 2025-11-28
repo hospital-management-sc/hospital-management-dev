@@ -11,6 +11,46 @@ datasource db {
 }
 
 // ============================================
+// PERSONAL AUTORIZADO - Whitelist de empleados del hospital
+// Solo personal registrado aquí puede crear cuentas en el sistema
+// Gestionado exclusivamente por autoridades del hospital
+// ============================================
+model PersonalAutorizado {
+  id                BigInt   @id @default(autoincrement())
+  ci                String   @unique @db.VarChar(50) // Cédula de identidad (único identificador)
+  nombreCompleto    String   @db.VarChar(200) // Nombre como aparece en documentos oficiales
+  email             String?  @db.VarChar(200) // Email institucional (opcional para pre-registro)
+  rolAutorizado     String   @db.VarChar(50) // MEDICO | ADMIN | COORDINADOR | ENFERMERO | SUPER_ADMIN
+  departamento      String?  @db.VarChar(100) // Departamento/Servicio asignado
+  cargo             String?  @db.VarChar(100) // Cargo específico
+  
+  // Control de vigencia
+  estado            String   @default("ACTIVO") @db.VarChar(50) // ACTIVO | INACTIVO | SUSPENDIDO | BAJA
+  fechaIngreso      DateTime @db.Date // Fecha de ingreso al hospital
+  fechaVencimiento  DateTime? @db.Date // Fecha hasta cuando está autorizado (null = indefinido)
+  
+  // Auditoría
+  motivoBaja        String?  @db.Text // Razón de inactivación/baja
+  autorizadoPor     String?  @db.VarChar(200) // Nombre de autoridad que lo agregó
+  
+  // Control de registro
+  registrado        Boolean  @default(false) // Si ya creó su cuenta en el sistema
+  fechaRegistro     DateTime? @db.Timestamptz // Cuándo se registró en la PWA
+  usuarioId         BigInt?  @unique // Referencia al usuario creado (1:1)
+  
+  createdAt         DateTime @default(now()) @db.Timestamptz()
+  updatedAt         DateTime @updatedAt @db.Timestamptz()
+  
+  // Relación con Usuario (opcional, se llena cuando se registra)
+  usuario           Usuario? @relation(fields: [usuarioId], references: [id])
+  
+  @@index([ci])
+  @@index([estado])
+  @@index([rolAutorizado])
+  @@index([registrado])
+}
+
+// ============================================
 // PACIENTES - Información básica del paciente
 // ============================================
 model Paciente {
@@ -68,7 +108,7 @@ model Usuario {
   password  String   @db.VarChar(255)
   ci        String?  @unique @db.VarChar(50)
   cargo     String?  @db.VarChar(100)
-  role      String?  @db.VarChar(50) // MEDICO, ENFERMERO, ADMIN, USUARIO, etc
+  role      String?  @db.VarChar(50) // MEDICO, ENFERMERO, ADMIN, COORDINADOR, SUPER_ADMIN
   createdAt DateTime @default(now()) @db.Timestamptz()
   updatedAt DateTime @updatedAt @db.Timestamptz()
 
@@ -83,6 +123,7 @@ model Usuario {
   ordenesMedicasOrdena OrdenMedica[]        @relation("OrdenesMedicasOrdena")
   ordenesMedicasCumple OrdenMedica[]        @relation("OrdenesMedicasCumple")
   evolucionesMedicas   EvolucionMedica[]
+  personalAutorizado   PersonalAutorizado?  // Relación inversa con whitelist
 
   @@index([email])
   @@index([ci])

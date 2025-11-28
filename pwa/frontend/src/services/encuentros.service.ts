@@ -39,6 +39,12 @@ export interface Encuentro {
   createdById?: string;
   createdAt: string;
   updatedAt: string;
+  paciente?: {
+    id: string;
+    nroHistoria: string;
+    apellidosNombres: string;
+    ci: string;
+  };
   createdBy?: {
     id: string;
     nombre: string;

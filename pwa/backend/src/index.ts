@@ -19,6 +19,7 @@ import citasRoutes from './routes/citas';
 import dashboardRoutes from './routes/dashboard';
 import admisionesRoutes from './routes/admisiones';
 import encuentrosRoutes from './routes/encuentros';
+import authorizedPersonnelRoutes from './routes/authorizedPersonnel';
 
 // Load environment variables
 dotenv.config();
@@ -121,6 +122,9 @@ app.use('/api/admisiones', admisionesRoutes);
 
 // Encuentros routes
 app.use('/api/encuentros', encuentrosRoutes);
+
+// Authorized Personnel routes (Whitelist - Solo SUPER_ADMIN)
+app.use('/api/authorized-personnel', authorizedPersonnelRoutes);
 
 // ============================================
 // ERROR HANDLING MIDDLEWARE

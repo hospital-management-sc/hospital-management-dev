@@ -3,6 +3,7 @@
  * 
  * Centralized logging using Winston for all application logging
  * Provides different log levels and formats for development/production
+ * Includes security-specific logging for audit trails
  */
 
 import winston from 'winston';
@@ -10,14 +11,16 @@ import winston from 'winston';
 const levels = {
   error: 0,
   warn: 1,
-  info: 2,
-  http: 3,
-  debug: 4,
+  security: 2, // Nuevo nivel para eventos de seguridad
+  info: 3,
+  http: 4,
+  debug: 5,
 };
 
 const colors = {
   error: 'red',
   warn: 'yellow',
+  security: 'cyan bold', // Color distintivo para seguridad
   info: 'green',
   http: 'magenta',
   debug: 'white',
@@ -44,17 +47,37 @@ const transports = [
     level: 'error',
   }),
 
+  // Security log file (eventos de seguridad y auditoría)
+  new winston.transports.File({
+    filename: 'logs/security.log',
+    level: 'security',
+  }),
+
   // Combined log file
   new winston.transports.File({
     filename: 'logs/all.log',
   }),
 ];
 
-const logger = winston.createLogger({
+const winstonLogger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'debug',
   levels,
   format,
   transports,
 });
+
+// Extender el logger con método security
+interface ExtendedLogger extends winston.Logger {
+  security: (message: string, ...meta: any[]) => winston.Logger;
+}
+
+const logger = winstonLogger as ExtendedLogger;
+
+// Agregar método security si no existe
+if (!logger.security) {
+  logger.security = (message: string, ...meta: any[]) => {
+    return logger.log('security', message, ...meta);
+  };
+}
 
 export default logger;
