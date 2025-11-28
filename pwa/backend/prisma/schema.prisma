@@ -77,6 +77,7 @@ model Paciente {
   antecedentes            Antecedente[]
   citas                   Cita[]                   @relation("CitasPaciente")
   formatosHospitalizacion FormatoHospitalizacion[]
+  interconsultas          Interconsulta[]
 
   @@index([ci])
   @@index([nroHistoria])
@@ -108,25 +109,29 @@ model Usuario {
   password  String   @db.VarChar(255)
   ci        String?  @unique @db.VarChar(50)
   cargo     String?  @db.VarChar(100)
+  especialidad String? @db.VarChar(100) // Especialidad médica (para interconsultas)
   role      String?  @db.VarChar(50) // MEDICO, ENFERMERO, ADMIN, COORDINADOR, SUPER_ADMIN
   createdAt DateTime @default(now()) @db.Timestamptz()
   updatedAt DateTime @updatedAt @db.Timestamptz()
 
   // Relaciones
-  admisionesCreadas    Admision[]           @relation("AdmisionesCreadas")
-  encuentros           Encuentro[]
-  auditorias           AuditLog[]
-  citas                Cita[]               @relation("CitasMedico")
-  laboratorios         Laboratorio[]
-  estudiosEspeciales   EstudioEspecial[]
-  electrocardiogramas  Electrocardiograma[]
-  ordenesMedicasOrdena OrdenMedica[]        @relation("OrdenesMedicasOrdena")
-  ordenesMedicasCumple OrdenMedica[]        @relation("OrdenesMedicasCumple")
-  evolucionesMedicas   EvolucionMedica[]
-  personalAutorizado   PersonalAutorizado?  // Relación inversa con whitelist
+  admisionesCreadas         Admision[]           @relation("AdmisionesCreadas")
+  encuentros                Encuentro[]
+  auditorias                AuditLog[]
+  citas                     Cita[]               @relation("CitasMedico")
+  laboratorios              Laboratorio[]
+  estudiosEspeciales        EstudioEspecial[]
+  electrocardiogramas       Electrocardiograma[]
+  ordenesMedicasOrdena      OrdenMedica[]        @relation("OrdenesMedicasOrdena")
+  ordenesMedicasCumple      OrdenMedica[]        @relation("OrdenesMedicasCumple")
+  evolucionesMedicas        EvolucionMedica[]
+  personalAutorizado        PersonalAutorizado?  // Relación inversa con whitelist
+  interconsultasSolicitadas Interconsulta[]      @relation("InterconsultasSolicitadas")
+  interconsultasRecibidas   Interconsulta[]      @relation("InterconsultasRecibidas")
 
   @@index([email])
   @@index([ci])
+  @@index([especialidad])
 }
 
 // ============================================
@@ -173,6 +178,7 @@ model Admision {
   encuentros             Encuentro[]
   formatoEmergencia      FormatoEmergencia?
   formatoHospitalizacion FormatoHospitalizacion?
+  interconsultas         Interconsulta[]
 
   @@index([pacienteId])
   @@index([fechaAdmision])
@@ -832,4 +838,60 @@ model EvolucionMedica {
 
   @@index([formatoHospId])
   @@index([fecha])
+}
+
+// ============================================
+// INTERCONSULTA - Solicitudes entre especialidades médicas
+// Permite que un médico refiera/transfiera pacientes a otras especialidades
+// ============================================
+model Interconsulta {
+  id         BigInt   @id @default(autoincrement())
+  pacienteId BigInt
+  admisionId BigInt?  // Opcional: si está relacionada a una admisión activa
+
+  // Médico que solicita la interconsulta
+  medicoSolicitanteId BigInt
+  especialidadOrigen  String @db.VarChar(100) // Especialidad del médico solicitante
+
+  // Destino de la interconsulta
+  especialidadDestino String  @db.VarChar(100) // Especialidad a la que se refiere
+  medicoDestinoId     BigInt? // Médico específico (opcional, puede ser cualquiera de la especialidad)
+
+  // Información clínica
+  motivoInterconsulta   String  @db.Text // Por qué se solicita la interconsulta
+  resumenClinico        String? @db.Text // Resumen del estado actual del paciente
+  preguntaEspecifica    String? @db.Text // Pregunta concreta al especialista
+  diagnosticoPresuntivo String? @db.Text // Diagnóstico actual/presuntivo
+
+  // Prioridad y urgencia
+  prioridad String @default("NORMAL") @db.VarChar(20) // URGENTE | ALTA | NORMAL | BAJA
+
+  // Estado del flujo
+  estado String @default("PENDIENTE") @db.VarChar(30) // PENDIENTE | EN_PROCESO | COMPLETADA | CANCELADA | RECHAZADA
+
+  // Respuesta del especialista
+  respuestaInterconsulta String?   @db.Text // Respuesta/conclusiones del especialista
+  recomendaciones        String?   @db.Text // Recomendaciones del especialista
+  fechaRespuesta         DateTime? @db.Timestamptz
+
+  // Fechas de control
+  fechaSolicitud DateTime @default(now()) @db.Timestamptz()
+  fechaAceptacion DateTime? @db.Timestamptz // Cuando el especialista acepta atenderla
+
+  createdAt DateTime @default(now()) @db.Timestamptz()
+  updatedAt DateTime @updatedAt @db.Timestamptz()
+
+  // Relaciones
+  paciente          Paciente  @relation(fields: [pacienteId], references: [id])
+  admision          Admision? @relation(fields: [admisionId], references: [id])
+  medicoSolicitante Usuario   @relation("InterconsultasSolicitadas", fields: [medicoSolicitanteId], references: [id])
+  medicoDestino     Usuario?  @relation("InterconsultasRecibidas", fields: [medicoDestinoId], references: [id])
+
+  @@index([pacienteId])
+  @@index([medicoSolicitanteId])
+  @@index([medicoDestinoId])
+  @@index([especialidadDestino])
+  @@index([estado])
+  @@index([prioridad])
+  @@index([fechaSolicitud])
 }

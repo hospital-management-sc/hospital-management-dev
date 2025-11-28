@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import type { Encuentro } from '@/services/encuentros.service';
 import styles from './EncuentrosList.module.css';
+import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '@/utils/dateUtils';
 
 interface EncuentrosListProps {
   encuentros: Encuentro[];
@@ -37,7 +38,8 @@ const EncuentrosList = ({ encuentros, onVerDetalle }: EncuentrosListProps) => {
 
   const formatFecha = (fecha: string) => {
     const date = new Date(fecha);
-    return date.toLocaleDateString('es-VE', {
+    return date.toLocaleDateString(VENEZUELA_LOCALE, {
+      timeZone: VENEZUELA_TIMEZONE,
       day: '2-digit',
       month: 'short',
       year: 'numeric',

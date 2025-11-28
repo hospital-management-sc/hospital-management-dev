@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { API_BASE_URL } from '../utils/constants'
+import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '../utils/dateUtils'
 import styles from './SuperAdminDashboard.module.css'
 
 // Tipos
@@ -358,7 +359,7 @@ export default function SuperAdminDashboard() {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'N/A'
     try {
-      return new Date(dateStr).toLocaleDateString('es-VE')
+      return new Date(dateStr).toLocaleDateString(VENEZUELA_LOCALE, { timeZone: VENEZUELA_TIMEZONE })
     } catch {
       return 'N/A'
     }

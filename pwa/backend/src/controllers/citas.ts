@@ -508,3 +508,221 @@ export const obtenerEspecialidades = async (_req: Request, res: Response): Promi
     })
   }
 }
+
+/**
+ * Obtener citas del día actual para un médico (o especialidad si no tiene médico asignado)
+ * GET /api/citas/medico/:medicoId/hoy
+ */
+export const obtenerCitasHoyMedico = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { medicoId } = req.params
+
+    // Validar que el médico exista y obtener su especialidad
+    const medico = await prisma.usuario.findUnique({
+      where: { id: BigInt(medicoId) },
+    })
+
+    if (!medico) {
+      res.status(404).json({
+        success: false,
+        message: 'Médico no encontrado',
+      })
+      return
+    }
+
+    // Construir rango de hoy
+    const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
+    const manana = new Date(hoy)
+    manana.setDate(manana.getDate() + 1)
+
+    // Obtener especialidad del médico (puede ser cargo si no tiene especialidad)
+    const especialidadMedico = (medico as any).especialidad || medico.cargo || ''
+
+    // Buscar citas asignadas directamente al médico O citas de su especialidad sin médico asignado
+    const citas = await prisma.cita.findMany({
+      where: {
+        AND: [
+          {
+            fechaCita: {
+              gte: hoy,
+              lt: manana,
+            },
+          },
+          {
+            OR: [
+              { medicoId: BigInt(medicoId) },
+              {
+                AND: [
+                  { medicoId: null },
+                  { especialidad: especialidadMedico },
+                ],
+              },
+            ],
+          },
+          {
+            estado: {
+              in: ['PROGRAMADA', 'EN_PROCESO'],
+            },
+          },
+        ],
+      },
+      include: {
+        paciente: {
+          select: {
+            id: true,
+            nroHistoria: true,
+            apellidosNombres: true,
+            ci: true,
+            fechaNacimiento: true,
+            sexo: true,
+            telefono: true,
+          },
+        },
+        medico: {
+          select: {
+            id: true,
+            nombre: true,
+          },
+        },
+      },
+      orderBy: [
+        { horaCita: 'asc' },
+        { fechaCita: 'asc' },
+      ],
+    })
+
+    res.json({
+      success: true,
+      data: convertBigIntToString(citas),
+      count: citas.length,
+      fecha: hoy.toISOString().split('T')[0],
+    })
+  } catch (error: any) {
+    console.error('Error al obtener citas de hoy:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al obtener citas de hoy',
+    })
+  }
+}
+
+/**
+ * Marcar cita como en proceso (médico comenzó a atender)
+ * PATCH /api/citas/:id/iniciar
+ */
+export const iniciarCita = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params
+
+    const cita = await prisma.cita.findUnique({
+      where: { id: BigInt(id) },
+    })
+
+    if (!cita) {
+      res.status(404).json({
+        success: false,
+        message: 'Cita no encontrada',
+      })
+      return
+    }
+
+    if (cita.estado !== 'PROGRAMADA') {
+      res.status(400).json({
+        success: false,
+        message: 'Solo se pueden iniciar citas programadas',
+      })
+      return
+    }
+
+    const citaActualizada = await prisma.cita.update({
+      where: { id: BigInt(id) },
+      data: {
+        estado: 'EN_PROCESO',
+      },
+      include: {
+        paciente: {
+          select: {
+            id: true,
+            nroHistoria: true,
+            apellidosNombres: true,
+            ci: true,
+          },
+        },
+      },
+    })
+
+    res.json({
+      success: true,
+      message: 'Cita iniciada',
+      data: convertBigIntToString(citaActualizada),
+    })
+  } catch (error: any) {
+    console.error('Error al iniciar cita:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al iniciar cita',
+    })
+  }
+}
+
+/**
+ * Marcar cita como completada
+ * PATCH /api/citas/:id/completar
+ */
+export const completarCita = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params
+    const { notas } = req.body
+
+    const cita = await prisma.cita.findUnique({
+      where: { id: BigInt(id) },
+    })
+
+    if (!cita) {
+      res.status(404).json({
+        success: false,
+        message: 'Cita no encontrada',
+      })
+      return
+    }
+
+    if (cita.estado === 'COMPLETADA') {
+      res.status(400).json({
+        success: false,
+        message: 'La cita ya está completada',
+      })
+      return
+    }
+
+    const citaActualizada = await prisma.cita.update({
+      where: { id: BigInt(id) },
+      data: {
+        estado: 'COMPLETADA',
+        notas: notas || cita.notas,
+      },
+      include: {
+        paciente: {
+          select: {
+            id: true,
+            nroHistoria: true,
+            apellidosNombres: true,
+            ci: true,
+          },
+        },
+      },
+    })
+
+    res.json({
+      success: true,
+      message: 'Cita completada exitosamente',
+      data: convertBigIntToString(citaActualizada),
+    })
+  } catch (error: any) {
+    console.error('Error al completar cita:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al completar cita',
+    })
+  }
+}

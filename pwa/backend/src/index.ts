@@ -20,6 +20,7 @@ import dashboardRoutes from './routes/dashboard';
 import admisionesRoutes from './routes/admisiones';
 import encuentrosRoutes from './routes/encuentros';
 import authorizedPersonnelRoutes from './routes/authorizedPersonnel';
+import interconsultasRoutes from './routes/interconsultas';
 
 // Load environment variables
 dotenv.config();
@@ -122,6 +123,9 @@ app.use('/api/admisiones', admisionesRoutes);
 
 // Encuentros routes
 app.use('/api/encuentros', encuentrosRoutes);
+
+// Interconsultas routes
+app.use('/api/interconsultas', interconsultasRoutes);
 
 // Authorized Personnel routes (Whitelist - Solo SUPER_ADMIN)
 app.use('/api/authorized-personnel', authorizedPersonnelRoutes);

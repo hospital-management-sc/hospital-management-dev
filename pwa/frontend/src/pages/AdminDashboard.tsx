@@ -12,6 +12,7 @@ import EncuentroDetailModal from '../components/EncuentroDetailModal'
 import { encuentrosService } from '../services/encuentros.service'
 import type { Encuentro } from '../services/encuentros.service'
 import { API_BASE_URL } from '../utils/constants'
+import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '../utils/dateUtils'
 
 type ViewMode = 'main' | 'register-patient' | 'create-appointment' | 'search-patient' | 'register-admission' | 'patient-history' | 'hospitalized-patients'
 
@@ -1103,7 +1104,7 @@ function CreateAppointmentForm({ preSelectedPatient }: { preSelectedPatient?: an
                     : cita.fechaCita
                   
                   if (!isNaN(fecha.getTime())) {
-                    fechaFormato = fecha.toLocaleDateString('es-VE')
+                    fechaFormato = fecha.toLocaleDateString(VENEZUELA_LOCALE, { timeZone: VENEZUELA_TIMEZONE })
                   }
                 } catch (e) {
                   fechaFormato = 'N/A'
@@ -1676,7 +1677,8 @@ function PatientHistoryView({ patient, onBack }: { patient: any; onBack: () => v
       const [year, month, day] = fechaStr.split('-').map(Number)
       const fechaObj = new Date(year, month - 1, day)
       
-      return isNaN(fechaObj.getTime()) ? 'N/A' : fechaObj.toLocaleDateString('es-VE', { 
+      return isNaN(fechaObj.getTime()) ? 'N/A' : fechaObj.toLocaleDateString(VENEZUELA_LOCALE, { 
+        timeZone: VENEZUELA_TIMEZONE,
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 

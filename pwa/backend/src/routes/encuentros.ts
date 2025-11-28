@@ -4,9 +4,17 @@ import {
   obtenerEncuentroPorId,
   obtenerEncuentrosHoy,
   obtenerEncuentrosPorTipo,
+  crearEncuentro,
+  crearEncuentroDesdeCita,
 } from '../controllers/encuentros';
 
 const router = Router();
+
+// Crear nuevo encuentro
+router.post('/', crearEncuentro);
+
+// Crear encuentro desde cita (atender cita)
+router.post('/desde-cita', crearEncuentroDesdeCita);
 
 // Obtener encuentros de un paciente específico
 router.get('/paciente/:pacienteId', obtenerEncuentrosPorPaciente);

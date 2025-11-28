@@ -1,6 +1,8 @@
 /**
  * Encuentros Controller
- * Maneja la consulta de encuentros médicos (solo lectura para administrativos)
+ * Maneja la gestión de encuentros médicos
+ * - Lectura: Para administrativos y médicos
+ * - Escritura: Solo para médicos
  */
 
 import { Request, Response } from 'express';
@@ -39,6 +41,287 @@ function convertBigIntToString(obj: any): any {
   
   return obj;
 }
+
+/**
+ * Crear un nuevo encuentro médico
+ * POST /api/encuentros
+ */
+export const crearEncuentro = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      pacienteId,
+      admisionId,
+      tipo,
+      fecha,
+      hora,
+      motivoConsulta,
+      enfermedadActual,
+      procedencia,
+      nroCama,
+      createdById,
+      // Signos vitales
+      signosVitales,
+      // Impresión diagnóstica
+      impresionDiagnostica,
+      tratamiento,
+    } = req.body;
+
+    // Validaciones básicas
+    if (!pacienteId || !tipo || !createdById) {
+      res.status(400).json({
+        success: false,
+        error: 'Campos requeridos: pacienteId, tipo, createdById',
+      });
+      return;
+    }
+
+    // Verificar que el paciente existe
+    const paciente = await prisma.paciente.findUnique({
+      where: { id: BigInt(pacienteId) },
+    });
+
+    if (!paciente) {
+      res.status(404).json({
+        success: false,
+        error: 'Paciente no encontrado',
+      });
+      return;
+    }
+
+    // Crear el encuentro con transacción
+    const resultado = await prisma.$transaction(async (tx) => {
+      // Crear encuentro
+      const encuentro = await tx.encuentro.create({
+        data: {
+          pacienteId: BigInt(pacienteId),
+          admisionId: admisionId ? BigInt(admisionId) : null,
+          tipo,
+          fecha: fecha ? new Date(fecha) : new Date(),
+          hora: hora ? new Date(`1970-01-01T${hora}:00`) : new Date(),
+          motivoConsulta,
+          enfermedadActual,
+          procedencia,
+          nroCama,
+          createdById: BigInt(createdById),
+        },
+      });
+
+      // Crear signos vitales si se proporcionaron
+      if (signosVitales) {
+        await tx.signosVitales.create({
+          data: {
+            encuentroId: encuentro.id,
+            taSistolica: signosVitales.taSistolica ? parseInt(signosVitales.taSistolica) : null,
+            taDiastolica: signosVitales.taDiastolica ? parseInt(signosVitales.taDiastolica) : null,
+            pulso: signosVitales.pulso ? parseInt(signosVitales.pulso) : null,
+            temperatura: signosVitales.temperatura ? parseFloat(signosVitales.temperatura) : null,
+            fr: signosVitales.fr ? parseInt(signosVitales.fr) : null,
+            observaciones: signosVitales.observaciones,
+          },
+        });
+      }
+
+      // Crear impresión diagnóstica si se proporcionó
+      if (impresionDiagnostica) {
+        await tx.impresionDiagnostica.create({
+          data: {
+            encuentroId: encuentro.id,
+            codigoCie: impresionDiagnostica.codigoCie,
+            descripcion: impresionDiagnostica.descripcion || tratamiento,
+            clase: impresionDiagnostica.clase || 'PRESUNTIVO',
+          },
+        });
+      }
+
+      // Obtener encuentro con relaciones
+      return await tx.encuentro.findUnique({
+        where: { id: encuentro.id },
+        include: {
+          paciente: {
+            select: {
+              id: true,
+              nroHistoria: true,
+              apellidosNombres: true,
+              ci: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              nombre: true,
+              cargo: true,
+            },
+          },
+          signosVitales: true,
+          impresiones: true,
+        },
+      });
+    });
+
+    logger.info(`Encuentro creado: ${resultado?.id} para paciente ${pacienteId}`);
+
+    res.status(201).json({
+      success: true,
+      data: convertBigIntToString(resultado),
+      message: 'Encuentro registrado exitosamente',
+    });
+  } catch (error: any) {
+    logger.error('Error al crear encuentro:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al crear encuentro',
+      details: error.message,
+    });
+  }
+};
+
+/**
+ * Crear encuentro desde atención de cita
+ * POST /api/encuentros/desde-cita
+ */
+export const crearEncuentroDesdeCita = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const {
+      citaId,
+      medicoId,
+      motivoConsulta,
+      enfermedadActual,
+      signosVitales,
+      impresionDiagnostica,
+      tratamiento,
+      observaciones,
+    } = req.body;
+
+    if (!citaId || !medicoId) {
+      res.status(400).json({
+        success: false,
+        error: 'Campos requeridos: citaId, medicoId',
+      });
+      return;
+    }
+
+    // Verificar que la cita existe y está programada
+    const cita = await prisma.cita.findUnique({
+      where: { id: BigInt(citaId) },
+      include: {
+        paciente: true,
+      },
+    });
+
+    if (!cita) {
+      res.status(404).json({
+        success: false,
+        error: 'Cita no encontrada',
+      });
+      return;
+    }
+
+    if (cita.estado === 'COMPLETADA') {
+      res.status(400).json({
+        success: false,
+        error: 'Esta cita ya fue atendida',
+      });
+      return;
+    }
+
+    // Crear encuentro y actualizar cita en transacción
+    const resultado = await prisma.$transaction(async (tx) => {
+      // Crear el encuentro
+      const encuentro = await tx.encuentro.create({
+        data: {
+          pacienteId: cita.pacienteId,
+          tipo: 'CONSULTA',
+          fecha: new Date(),
+          hora: new Date(),
+          motivoConsulta: motivoConsulta || cita.motivo,
+          enfermedadActual,
+          procedencia: 'CITA_PROGRAMADA',
+          createdById: BigInt(medicoId),
+        },
+      });
+
+      // Crear signos vitales
+      if (signosVitales) {
+        await tx.signosVitales.create({
+          data: {
+            encuentroId: encuentro.id,
+            taSistolica: signosVitales.taSistolica ? parseInt(signosVitales.taSistolica) : null,
+            taDiastolica: signosVitales.taDiastolica ? parseInt(signosVitales.taDiastolica) : null,
+            pulso: signosVitales.pulso ? parseInt(signosVitales.pulso) : null,
+            temperatura: signosVitales.temperatura ? parseFloat(signosVitales.temperatura) : null,
+            fr: signosVitales.fr ? parseInt(signosVitales.fr) : null,
+            observaciones: observaciones,
+          },
+        });
+      }
+
+      // Crear impresión diagnóstica
+      if (impresionDiagnostica || tratamiento) {
+        await tx.impresionDiagnostica.create({
+          data: {
+            encuentroId: encuentro.id,
+            codigoCie: impresionDiagnostica?.codigoCie,
+            descripcion: impresionDiagnostica?.descripcion || tratamiento,
+            clase: impresionDiagnostica?.clase || 'PRESUNTIVO',
+          },
+        });
+      }
+
+      // Actualizar estado de la cita
+      await tx.cita.update({
+        where: { id: BigInt(citaId) },
+        data: {
+          estado: 'COMPLETADA',
+          notas: observaciones,
+        },
+      });
+
+      // Retornar encuentro completo
+      return await tx.encuentro.findUnique({
+        where: { id: encuentro.id },
+        include: {
+          paciente: {
+            select: {
+              id: true,
+              nroHistoria: true,
+              apellidosNombres: true,
+              ci: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              nombre: true,
+            },
+          },
+          signosVitales: true,
+          impresiones: true,
+        },
+      });
+    });
+
+    logger.info(`Encuentro creado desde cita ${citaId}: ${resultado?.id}`);
+
+    res.status(201).json({
+      success: true,
+      data: convertBigIntToString(resultado),
+      message: 'Cita atendida y encuentro registrado exitosamente',
+    });
+  } catch (error: any) {
+    logger.error('Error al crear encuentro desde cita:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al crear encuentro',
+      details: error.message,
+    });
+  }
+};
 
 /**
  * Obtener todos los encuentros de un paciente

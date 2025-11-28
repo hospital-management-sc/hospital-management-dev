@@ -73,6 +73,42 @@ export interface EncuentroResponse {
   data: Encuentro;
 }
 
+// DTOs para crear/actualizar
+export interface CrearEncuentroDTO {
+  pacienteId: number;
+  tipo: 'EMERGENCIA' | 'HOSPITALIZACION' | 'CONSULTA' | 'OTRO';
+  fecha?: string;
+  hora?: string;
+  motivoConsulta?: string;
+  enfermedadActual?: string;
+  procedencia?: string;
+  nroCama?: string;
+  createdById?: number;
+  admisionId?: number;
+  citaId?: number;
+  // Signos vitales opcionales
+  signosVitales?: {
+    taSistolica?: number;
+    taDiastolica?: number;
+    pulso?: number;
+    temperatura?: number;
+    fr?: number;
+    observaciones?: string;
+  };
+  // Impresión diagnóstica opcional
+  impresionDiagnostica?: {
+    codigoCie?: string;
+    descripcion?: string;
+    clase?: string;
+  };
+}
+
+export interface AgregarEvolucionDTO {
+  nota: string;
+  tipo?: string;
+  usuarioId?: number;
+}
+
 class EncuentrosService {
   /**
    * Obtener todos los encuentros de un paciente
@@ -112,6 +148,27 @@ class EncuentrosService {
       `/encuentros/tipo/${tipo}`
     );
     return response.data;
+  }
+
+  /**
+   * Crear un nuevo encuentro médico
+   */
+  async crearEncuentro(datos: CrearEncuentroDTO): Promise<Encuentro> {
+    const response = await apiService.post<EncuentroResponse>(
+      `/encuentros`,
+      datos
+    );
+    return response.data;
+  }
+
+  /**
+   * Agregar nota de evolución a un encuentro existente
+   */
+  async agregarEvolucion(encuentroId: string | number, datos: AgregarEvolucionDTO): Promise<{ success: boolean; message: string }> {
+    return await apiService.post<{ success: boolean; message: string }>(
+      `/encuentros/${encuentroId}/evolucion`,
+      datos
+    );
   }
 }
 

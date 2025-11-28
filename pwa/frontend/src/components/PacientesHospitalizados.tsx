@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import styles from './PacientesHospitalizados.module.css';
 import admisionesService from '../services/admisiones.service';
 import type { Admision } from '../services/admisiones.service';
+import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '../utils/dateUtils';
 
 interface PacientesHospitalizadosProps {
   onBack: () => void;
@@ -84,7 +85,8 @@ export default function PacientesHospitalizados({ onBack }: PacientesHospitaliza
   const formatearFecha = (fecha: string | Date | undefined) => {
     if (!fecha) return 'N/A';
     const date = new Date(fecha);
-    return date.toLocaleDateString('es-VE', {
+    return date.toLocaleDateString(VENEZUELA_LOCALE, {
+      timeZone: VENEZUELA_TIMEZONE,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -94,7 +96,8 @@ export default function PacientesHospitalizados({ onBack }: PacientesHospitaliza
   const formatearHora = (hora: string | Date | undefined) => {
     if (!hora) return 'N/A';
     const date = new Date(hora);
-    return date.toLocaleTimeString('es-VE', {
+    return date.toLocaleTimeString(VENEZUELA_LOCALE, {
+      timeZone: VENEZUELA_TIMEZONE,
       hour: '2-digit',
       minute: '2-digit',
     });

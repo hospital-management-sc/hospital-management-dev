@@ -5,6 +5,7 @@
 
 import type { Encuentro } from '@/services/encuentros.service';
 import styles from './EncuentroDetailModal.module.css';
+import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '@/utils/dateUtils';
 
 interface EncuentroDetailModalProps {
   encuentro: Encuentro | null;
@@ -26,7 +27,8 @@ const EncuentroDetailModal = ({ encuentro, onClose }: EncuentroDetailModalProps)
 
   const formatFecha = (fecha: string) => {
     const date = new Date(fecha);
-    return date.toLocaleDateString('es-VE', {
+    return date.toLocaleDateString(VENEZUELA_LOCALE, {
+      timeZone: VENEZUELA_TIMEZONE,
       weekday: 'long',
       year: 'numeric',
       month: 'long',

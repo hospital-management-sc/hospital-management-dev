@@ -6,10 +6,15 @@
 import { useState, useEffect } from 'react'
 import styles from './DoctorDashboard.module.css'
 import { API_BASE_URL } from '../utils/constants'
+import { formatDateVenezuela, formatDateTimeVenezuela, formatTimeVenezuela, formatDateLongVenezuela } from '../utils/dateUtils'
 import admisionesService from '../services/admisiones.service'
 import type { Admision } from '../services/admisiones.service'
 import { encuentrosService } from '../services/encuentros.service'
 import type { Encuentro } from '../services/encuentros.service'
+import * as interconsultasService from '../services/interconsultas.service'
+import type { Interconsulta, CrearInterconsultaDTO, PrioridadInterconsulta } from '../services/interconsultas.service'
+import * as citasService from '../services/citas.service'
+import type { Cita } from '../services/citas.service'
 import EncuentroDetailModal from '../components/EncuentroDetailModal'
 import EncuentrosList from '../components/EncuentrosList'
 
@@ -21,6 +26,7 @@ type ViewMode =
   | 'patient-history'
   | 'today-encounters'
   | 'my-appointments'
+  | 'interconsultas'
 
 interface DoctorStats {
   pacientesHospitalizados: number
@@ -217,6 +223,22 @@ export default function DoctorDashboard() {
 
           <button 
             className={styles['action-btn']}
+            onClick={() => setViewMode('interconsultas')}
+          >
+            <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <path d="M20 8v6" />
+              <path d="M23 11h-6" />
+            </svg>
+            <div className={styles['btn-content']}>
+              <span className={styles['btn-title']}>Interconsultas</span>
+              <span className={styles['btn-description']}>Solicite o responda consultas entre especialidades</span>
+            </div>
+          </button>
+
+          <button 
+            className={styles['action-btn']}
             onClick={() => alert('Próximamente: Registrar Alta Médica')}
           >
             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -274,6 +296,7 @@ export default function DoctorDashboard() {
         )}
         {viewMode === 'today-encounters' && <TodayEncountersView />}
         {viewMode === 'my-appointments' && <MyAppointmentsView />}
+        {viewMode === 'interconsultas' && <InterconsultasView />}
       </main>
     </div>
   )
@@ -423,7 +446,7 @@ function HospitalizedPatientsView() {
                 <div className={styles['card-expanded']}>
                   <div className={styles['expanded-info']}>
                     <p><strong>Forma ingreso:</strong> {admision.formaIngreso || 'N/A'}</p>
-                    <p><strong>Fecha ingreso:</strong> {new Date(admision.fechaAdmision).toLocaleDateString('es-VE')}</p>
+                    <p><strong>Fecha ingreso:</strong> {formatDateVenezuela(admision.fechaAdmision)}</p>
                     {admision.observaciones && (
                       <p><strong>Observaciones:</strong> {admision.observaciones}</p>
                     )}
@@ -458,9 +481,11 @@ function RegisterEncounterView() {
   const [searchCI, setSearchCI] = useState('')
   const [paciente, setPaciente] = useState<PatientBasic | null>(null)
   const [searching, setSearching] = useState(false)
+  const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [formData, setFormData] = useState({
-    tipo: 'CONSULTA',
+    tipo: 'CONSULTA' as 'EMERGENCIA' | 'HOSPITALIZACION' | 'CONSULTA' | 'OTRO',
     fecha: new Date().toISOString().split('T')[0],
     hora: new Date().toTimeString().slice(0, 5),
     motivoConsulta: '',
@@ -479,6 +504,9 @@ function RegisterEncounterView() {
     tratamiento: '',
     observaciones: ''
   })
+
+  // TODO: Obtener ID del médico del contexto de autenticación
+  const medicoId = 1
 
   const buscarPaciente = async () => {
     if (!searchCI.trim()) {
@@ -505,8 +533,87 @@ function RegisterEncounterView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Por ahora, mostrar mensaje de próximamente
-    alert('🚧 Funcionalidad en desarrollo\n\nEl registro de encuentros estará disponible próximamente.')
+    
+    if (!paciente) {
+      setError('Debe seleccionar un paciente')
+      return
+    }
+
+    if (!formData.motivoConsulta.trim()) {
+      setError('El motivo de consulta es obligatorio')
+      return
+    }
+
+    setGuardando(true)
+    setError('')
+    setSuccessMessage('')
+
+    try {
+      // Construir objeto de signos vitales solo si hay datos
+      const signosVitales = (formData.taSistolica || formData.taDiastolica || formData.pulso || formData.temperatura || formData.fr) ? {
+        taSistolica: formData.taSistolica ? parseInt(formData.taSistolica) : undefined,
+        taDiastolica: formData.taDiastolica ? parseInt(formData.taDiastolica) : undefined,
+        pulso: formData.pulso ? parseInt(formData.pulso) : undefined,
+        temperatura: formData.temperatura ? parseFloat(formData.temperatura) : undefined,
+        fr: formData.fr ? parseInt(formData.fr) : undefined,
+      } : undefined
+
+      // Construir objeto de impresión diagnóstica solo si hay datos
+      const impresionDiagnostica = formData.diagnostico ? {
+        descripcion: formData.diagnostico,
+        codigoCie: formData.codigoCie || undefined,
+      } : undefined
+
+      const encuentroData = {
+        pacienteId: parseInt(paciente.id),
+        tipo: formData.tipo,
+        fecha: formData.fecha,
+        hora: formData.hora,
+        motivoConsulta: formData.motivoConsulta,
+        enfermedadActual: formData.enfermedadActual || undefined,
+        procedencia: formData.procedencia || undefined,
+        nroCama: formData.nroCama || undefined,
+        createdById: medicoId,
+        signosVitales,
+        impresionDiagnostica,
+      }
+
+      await encuentrosService.crearEncuentro(encuentroData)
+      
+      setSuccessMessage('✅ Encuentro registrado exitosamente')
+      
+      // Limpiar formulario después de éxito
+      setTimeout(() => {
+        setStep(1)
+        setPaciente(null)
+        setSearchCI('')
+        setFormData({
+          tipo: 'CONSULTA',
+          fecha: new Date().toISOString().split('T')[0],
+          hora: new Date().toTimeString().slice(0, 5),
+          motivoConsulta: '',
+          enfermedadActual: '',
+          procedencia: '',
+          nroCama: '',
+          taSistolica: '',
+          taDiastolica: '',
+          pulso: '',
+          temperatura: '',
+          fr: '',
+          diagnostico: '',
+          codigoCie: '',
+          tratamiento: '',
+          observaciones: ''
+        })
+        setSuccessMessage('')
+      }, 2000)
+      
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al guardar el encuentro'
+      setError(errorMessage)
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -578,7 +685,7 @@ function RegisterEncounterView() {
                 <label>Tipo de Encuentro *</label>
                 <select 
                   value={formData.tipo}
-                  onChange={(e) => setFormData({...formData, tipo: e.target.value})}
+                  onChange={(e) => setFormData({...formData, tipo: e.target.value as 'EMERGENCIA' | 'HOSPITALIZACION' | 'CONSULTA' | 'OTRO'})}
                 >
                   <option value="CONSULTA">🩺 Consulta</option>
                   <option value="EMERGENCIA">🚨 Emergencia</option>
@@ -757,12 +864,15 @@ function RegisterEncounterView() {
               </div>
             </div>
 
+            {error && <div className={styles['error-alert']}>{error}</div>}
+            {successMessage && <div className={styles['success-alert']}>{successMessage}</div>}
+
             <div className={styles['form-actions']}>
-              <button type="button" className={styles['btn-secondary']} onClick={() => setStep(2)}>
+              <button type="button" className={styles['btn-secondary']} onClick={() => setStep(2)} disabled={guardando}>
                 ← Atrás
               </button>
-              <button type="submit" className={styles['btn-primary']}>
-                💾 Guardar Encuentro
+              <button type="submit" className={styles['btn-primary']} disabled={guardando}>
+                {guardando ? '⏳ Guardando...' : '💾 Guardar Encuentro'}
               </button>
             </div>
           </form>
@@ -1011,7 +1121,7 @@ function PatientHistoryView({ patient, onBack }: { patient: PatientBasic; onBack
                     {adm.tipo || 'N/A'}
                   </span>
                   <span className={styles.fecha}>
-                    {new Date(adm.fechaAdmision).toLocaleDateString('es-VE')}
+                    {formatDateVenezuela(adm.fechaAdmision)}
                   </span>
                 </div>
                 <div className={styles['admision-details']}>
@@ -1082,7 +1192,7 @@ function TodayEncountersView() {
       <div className={styles['section-header']}>
         <h2>📅 Atenciones de Hoy</h2>
         <p className={styles['section-subtitle']}>
-          {new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          {formatDateLongVenezuela(new Date())}
         </p>
       </div>
 
@@ -1173,8 +1283,12 @@ function TodayEncountersView() {
 // COMPONENTE: Mis Citas
 // ==========================================
 function MyAppointmentsView() {
-  const [citas, setCitas] = useState<any[]>([])
+  const [citas, setCitas] = useState<Cita[]>([])
   const [loading, setLoading] = useState(true)
+  const [procesando, setProcesando] = useState<number | null>(null)
+
+  // TODO: Obtener ID del médico actual del contexto de autenticación
+  const medicoId = 1 // Temporal
 
   useEffect(() => {
     cargarCitas()
@@ -1182,16 +1296,64 @@ function MyAppointmentsView() {
 
   const cargarCitas = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/citas/lista/proximas`)
-      const result = await response.json()
-      if (result.success) {
-        setCitas(result.data || [])
-      }
+      // Intentar cargar citas del día para el médico actual
+      const citasHoy = await citasService.obtenerCitasDelDia(medicoId)
+      setCitas(citasHoy)
     } catch (err) {
       console.error('Error al cargar citas:', err)
+      // Fallback al endpoint anterior si falla
+      try {
+        const response = await fetch(`${API_BASE_URL}/citas/lista/proximas`)
+        const result = await response.json()
+        if (result.success) {
+          setCitas(result.data || [])
+        }
+      } catch {
+        console.error('Fallback también falló')
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleAtenderCita = async (citaId: number) => {
+    setProcesando(citaId)
+    try {
+      await citasService.atenderCita(citaId)
+      await cargarCitas()
+      alert('✅ Cita marcada como en atención')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al atender cita'
+      alert('❌ ' + errorMessage)
+    } finally {
+      setProcesando(null)
+    }
+  }
+
+  const handleCompletarCita = async (citaId: number) => {
+    setProcesando(citaId)
+    try {
+      await citasService.completarCita(citaId)
+      await cargarCitas()
+      alert('✅ Cita completada')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al completar cita'
+      alert('❌ ' + errorMessage)
+    } finally {
+      setProcesando(null)
+    }
+  }
+
+  const getEstadoLabel = (estado: string) => {
+    const labels: Record<string, string> = {
+      PENDIENTE: '⏳ Pendiente',
+      CONFIRMADA: '✓ Confirmada',
+      EN_CURSO: '🔄 En Curso',
+      COMPLETADA: '✅ Completada',
+      CANCELADA: '❌ Cancelada',
+      NO_ASISTIO: '⚠️ No Asistió',
+    }
+    return labels[estado] || estado
   }
 
   if (loading) {
@@ -1206,15 +1368,36 @@ function MyAppointmentsView() {
   return (
     <section className={styles['view-section']}>
       <div className={styles['section-header']}>
-        <h2>📅 Mis Citas Programadas</h2>
-        <p className={styles['section-subtitle']}>Gestione sus citas y consultas programadas</p>
+        <h2>📅 Mis Citas del Día</h2>
+        <p className={styles['section-subtitle']}>
+          {formatDateLongVenezuela(new Date())}
+        </p>
       </div>
 
       <div className={styles['form-card']}>
+        <div className={styles['stats-summary']}>
+          <div className={styles['stat-box']}>
+            <span className={styles['stat-number']}>{citas.length}</span>
+            <span className={styles['stat-label']}>Total Citas</span>
+          </div>
+          <div className={styles['stat-box']}>
+            <span className={styles['stat-number']}>
+              {citas.filter(c => c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA').length}
+            </span>
+            <span className={styles['stat-label']}>Por Atender</span>
+          </div>
+          <div className={styles['stat-box']}>
+            <span className={styles['stat-number']}>
+              {citas.filter(c => c.estado === 'COMPLETADA').length}
+            </span>
+            <span className={styles['stat-label']}>Completadas</span>
+          </div>
+        </div>
+
         {citas.length === 0 ? (
           <div className={styles['empty-state']}>
             <span className={styles['empty-icon']}>📅</span>
-            <h3>No hay citas programadas</h3>
+            <h3>No hay citas programadas para hoy</h3>
             <p>Las citas asignadas aparecerán aquí</p>
           </div>
         ) : (
@@ -1223,36 +1406,653 @@ function MyAppointmentsView() {
               <div key={cita.id} className={styles['appointment-card']}>
                 <div className={styles['appointment-header']}>
                   <span className={styles['appointment-time']}>
-                    {new Date(cita.fechaHora).toLocaleString('es-VE', {
-                      weekday: 'short',
-                      day: '2-digit',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {formatTimeVenezuela(cita.fechaHora)}
                   </span>
                   <span className={`${styles['status-badge']} ${styles[`status-${cita.estado?.toLowerCase()}`]}`}>
-                    {cita.estado}
+                    {getEstadoLabel(cita.estado)}
                   </span>
                 </div>
                 <div className={styles['appointment-body']}>
                   <p><strong>Paciente:</strong> {cita.paciente?.apellidosNombres || 'N/A'}</p>
+                  <p><strong>CI:</strong> {cita.paciente?.ci || 'N/A'}</p>
                   <p><strong>Especialidad:</strong> {cita.especialidad || 'N/A'}</p>
                   <p><strong>Motivo:</strong> {cita.motivo || 'No especificado'}</p>
+                  {cita.horaLlegada && (
+                    <p><strong>Hora llegada:</strong> {formatTimeVenezuela(cita.horaLlegada)}</p>
+                  )}
                 </div>
                 <div className={styles['appointment-actions']}>
-                  <button className={styles['btn-primary']} onClick={() => alert('Próximamente: Atender Cita')}>
-                    ✅ Atender
-                  </button>
-                  <button className={styles['btn-secondary']} onClick={() => alert('Próximamente: Reprogramar')}>
-                    📅 Reprogramar
-                  </button>
+                  {(cita.estado === 'PENDIENTE' || cita.estado === 'CONFIRMADA') && (
+                    <button 
+                      className={styles['btn-primary']} 
+                      onClick={() => handleAtenderCita(cita.id)}
+                      disabled={procesando === cita.id}
+                    >
+                      {procesando === cita.id ? '⏳...' : '▶️ Atender'}
+                    </button>
+                  )}
+                  {cita.estado === 'EN_CURSO' && (
+                    <button 
+                      className={styles['btn-primary']} 
+                      onClick={() => handleCompletarCita(cita.id)}
+                      disabled={procesando === cita.id}
+                    >
+                      {procesando === cita.id ? '⏳...' : '✅ Completar'}
+                    </button>
+                  )}
+                  {cita.estado === 'COMPLETADA' && (
+                    <span className={styles['completed-label']}>✅ Atención finalizada</span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <div className={styles['section-footer']}>
+        <button className={styles['refresh-btn']} onClick={cargarCitas}>
+          🔄 Actualizar
+        </button>
+      </div>
     </section>
+  )
+}
+
+// ==========================================
+// COMPONENTE: Interconsultas
+// ==========================================
+function InterconsultasView() {
+  const [tabActiva, setTabActiva] = useState<'enviadas' | 'recibidas' | 'nueva'>('enviadas')
+  const [interconsultasEnviadas, setInterconsultasEnviadas] = useState<Interconsulta[]>([])
+  const [interconsultasRecibidas, setInterconsultasRecibidas] = useState<Interconsulta[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [selectedInterconsulta, setSelectedInterconsulta] = useState<Interconsulta | null>(null)
+  
+  // Para crear nueva interconsulta
+  const [searchCI, setSearchCI] = useState('')
+  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<PatientBasic | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [formData, setFormData] = useState<Partial<CrearInterconsultaDTO>>({
+    especialidadDestino: '',
+    prioridad: 'MEDIA',
+    motivo: '',
+    diagnosticoPrevio: '',
+    observaciones: ''
+  })
+  const [creando, setCreando] = useState(false)
+
+  // TODO: Obtener ID del médico actual del contexto de autenticación
+  const medicoId = 1 // Temporal - deberá venir del contexto de auth
+
+  useEffect(() => {
+    cargarInterconsultas()
+  }, [])
+
+  const cargarInterconsultas = async () => {
+    setLoading(true)
+    try {
+      const [enviadas, recibidas] = await Promise.all([
+        interconsultasService.obtenerInterconsultasPendientes(medicoId),
+        interconsultasService.obtenerInterconsultasRecibidas(medicoId)
+      ])
+      setInterconsultasEnviadas(enviadas)
+      setInterconsultasRecibidas(recibidas)
+    } catch (err) {
+      console.error('Error al cargar interconsultas:', err)
+      setError('Error al cargar interconsultas')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const buscarPaciente = async () => {
+    if (!searchCI.trim()) {
+      setError('Ingrese un número de cédula')
+      return
+    }
+    setSearching(true)
+    setError('')
+    try {
+      const response = await fetch(`${API_BASE_URL}/pacientes/search?ci=${searchCI}`)
+      const result = await response.json()
+      if (result.success && result.data) {
+        setPacienteSeleccionado(result.data)
+      } else {
+        setError('Paciente no encontrado')
+      }
+    } catch {
+      setError('Error al buscar paciente')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const crearInterconsulta = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pacienteSeleccionado) {
+      setError('Debe seleccionar un paciente')
+      return
+    }
+    if (!formData.especialidadDestino || !formData.motivo) {
+      setError('Complete los campos obligatorios')
+      return
+    }
+
+    setCreando(true)
+    setError('')
+    try {
+      const nuevaInterconsulta: CrearInterconsultaDTO = {
+        pacienteId: parseInt(pacienteSeleccionado.id),
+        medicoSolicitanteId: medicoId,
+        especialidadDestino: formData.especialidadDestino!,
+        prioridad: formData.prioridad as PrioridadInterconsulta,
+        motivo: formData.motivo!,
+        diagnosticoPrevio: formData.diagnosticoPrevio,
+        observaciones: formData.observaciones
+      }
+      
+      await interconsultasService.crearInterconsulta(nuevaInterconsulta)
+      
+      // Limpiar y volver a cargar
+      setPacienteSeleccionado(null)
+      setSearchCI('')
+      setFormData({
+        especialidadDestino: '',
+        prioridad: 'MEDIA',
+        motivo: '',
+        diagnosticoPrevio: '',
+        observaciones: ''
+      })
+      setTabActiva('enviadas')
+      await cargarInterconsultas()
+      alert('✅ Interconsulta creada exitosamente')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear interconsulta'
+      setError(errorMessage)
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  const aceptarInterconsulta = async (interconsultaId: number) => {
+    try {
+      await interconsultasService.aceptarInterconsulta(interconsultaId, medicoId)
+      await cargarInterconsultas()
+      alert('✅ Interconsulta aceptada')
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al aceptar'
+      alert('❌ ' + errorMessage)
+    }
+  }
+
+  const getPrioridadBadge = (prioridad: string) => {
+    const config: Record<string, { emoji: string; className: string }> = {
+      URGENTE: { emoji: '🔴', className: styles['prioridad-urgente'] },
+      ALTA: { emoji: '🟠', className: styles['prioridad-alta'] },
+      MEDIA: { emoji: '🟡', className: styles['prioridad-media'] },
+      BAJA: { emoji: '🟢', className: styles['prioridad-baja'] }
+    }
+    return config[prioridad] || config.MEDIA
+  }
+
+  const getEstadoBadge = (estado: string) => {
+    const config: Record<string, { label: string; className: string }> = {
+      PENDIENTE: { label: '⏳ Pendiente', className: styles['estado-pendiente'] },
+      EN_PROCESO: { label: '🔄 En Proceso', className: styles['estado-proceso'] },
+      COMPLETADA: { label: '✅ Completada', className: styles['estado-completada'] },
+      CANCELADA: { label: '❌ Cancelada', className: styles['estado-cancelada'] }
+    }
+    return config[estado] || config.PENDIENTE
+  }
+
+  if (loading) {
+    return (
+      <div className={styles['loading-container']}>
+        <div className={styles.spinner}></div>
+        <p>Cargando interconsultas...</p>
+      </div>
+    )
+  }
+
+  return (
+    <section className={styles['view-section']}>
+      <div className={styles['section-header']}>
+        <h2>🔄 Interconsultas Médicas</h2>
+        <p className={styles['section-subtitle']}>
+          Solicite evaluaciones de otras especialidades o responda consultas recibidas
+        </p>
+      </div>
+
+      {/* Tabs de navegación */}
+      <div className={styles['tabs-container']}>
+        <button 
+          className={`${styles.tab} ${tabActiva === 'enviadas' ? styles.active : ''}`}
+          onClick={() => setTabActiva('enviadas')}
+        >
+          📤 Enviadas ({interconsultasEnviadas.length})
+        </button>
+        <button 
+          className={`${styles.tab} ${tabActiva === 'recibidas' ? styles.active : ''}`}
+          onClick={() => setTabActiva('recibidas')}
+        >
+          📥 Recibidas ({interconsultasRecibidas.length})
+        </button>
+        <button 
+          className={`${styles.tab} ${tabActiva === 'nueva' ? styles.active : ''}`}
+          onClick={() => setTabActiva('nueva')}
+        >
+          ➕ Nueva Interconsulta
+        </button>
+      </div>
+
+      {error && <div className={styles['error-alert']}>{error}</div>}
+
+      {/* Tab: Interconsultas Enviadas */}
+      {tabActiva === 'enviadas' && (
+        <div className={styles['form-card']}>
+          <h3>📤 Interconsultas Enviadas</h3>
+          {interconsultasEnviadas.length === 0 ? (
+            <div className={styles['empty-state']}>
+              <span className={styles['empty-icon']}>📭</span>
+              <h3>No hay interconsultas enviadas</h3>
+              <p>Las solicitudes que envíe aparecerán aquí</p>
+            </div>
+          ) : (
+            <div className={styles['interconsultas-list']}>
+              {interconsultasEnviadas.map((ic) => (
+                <div key={ic.id} className={styles['interconsulta-card']}>
+                  <div className={styles['ic-header']}>
+                    <div className={styles['ic-paciente']}>
+                      <strong>{ic.paciente?.nombre} {ic.paciente?.apellido}</strong>
+                      <small>CI: {ic.paciente?.cedula}</small>
+                    </div>
+                    <div className={styles['ic-badges']}>
+                      <span className={getPrioridadBadge(ic.prioridad).className}>
+                        {getPrioridadBadge(ic.prioridad).emoji} {ic.prioridad}
+                      </span>
+                      <span className={getEstadoBadge(ic.estado).className}>
+                        {getEstadoBadge(ic.estado).label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles['ic-body']}>
+                    <p><strong>Especialidad solicitada:</strong> {ic.especialidadDestino}</p>
+                    <p><strong>Motivo:</strong> {ic.motivo}</p>
+                    <p><strong>Fecha solicitud:</strong> {formatDateTimeVenezuela(ic.fechaSolicitud)}</p>
+                    {ic.medicoDestino && (
+                      <p><strong>Atendida por:</strong> Dr. {ic.medicoDestino.nombre} {ic.medicoDestino.apellido}</p>
+                    )}
+                    {ic.respuesta && (
+                      <div className={styles['ic-respuesta']}>
+                        <strong>Respuesta:</strong>
+                        <p>{ic.respuesta}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles['ic-actions']}>
+                    <button 
+                      className={styles['btn-small']}
+                      onClick={() => {
+                        setSelectedInterconsulta(ic)
+                        setShowModal(true)
+                      }}
+                    >
+                      👁️ Ver detalle
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Interconsultas Recibidas */}
+      {tabActiva === 'recibidas' && (
+        <div className={styles['form-card']}>
+          <h3>📥 Interconsultas Recibidas</h3>
+          {interconsultasRecibidas.length === 0 ? (
+            <div className={styles['empty-state']}>
+              <span className={styles['empty-icon']}>📬</span>
+              <h3>No hay interconsultas recibidas</h3>
+              <p>Las solicitudes dirigidas a su especialidad aparecerán aquí</p>
+            </div>
+          ) : (
+            <div className={styles['interconsultas-list']}>
+              {interconsultasRecibidas.map((ic) => (
+                <div key={ic.id} className={`${styles['interconsulta-card']} ${styles['ic-recibida']}`}>
+                  <div className={styles['ic-header']}>
+                    <div className={styles['ic-paciente']}>
+                      <strong>{ic.paciente?.nombre} {ic.paciente?.apellido}</strong>
+                      <small>CI: {ic.paciente?.cedula}</small>
+                    </div>
+                    <div className={styles['ic-badges']}>
+                      <span className={getPrioridadBadge(ic.prioridad).className}>
+                        {getPrioridadBadge(ic.prioridad).emoji} {ic.prioridad}
+                      </span>
+                      <span className={getEstadoBadge(ic.estado).className}>
+                        {getEstadoBadge(ic.estado).label}
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles['ic-body']}>
+                    <p><strong>Solicitado por:</strong> Dr. {ic.medicoSolicitante?.nombre} {ic.medicoSolicitante?.apellido} ({ic.medicoSolicitante?.especialidad})</p>
+                    <p><strong>Motivo:</strong> {ic.motivo}</p>
+                    {ic.diagnosticoPrevio && (
+                      <p><strong>Diagnóstico previo:</strong> {ic.diagnosticoPrevio}</p>
+                    )}
+                    <p><strong>Fecha solicitud:</strong> {formatDateTimeVenezuela(ic.fechaSolicitud)}</p>
+                  </div>
+                  <div className={styles['ic-actions']}>
+                    {ic.estado === 'PENDIENTE' && (
+                      <button 
+                        className={styles['btn-primary']}
+                        onClick={() => aceptarInterconsulta(ic.id)}
+                      >
+                        ✅ Aceptar
+                      </button>
+                    )}
+                    {ic.estado === 'EN_PROCESO' && (
+                      <button 
+                        className={styles['btn-primary']}
+                        onClick={() => {
+                          setSelectedInterconsulta(ic)
+                          setShowModal(true)
+                        }}
+                      >
+                        📝 Responder
+                      </button>
+                    )}
+                    <button 
+                      className={styles['btn-small']}
+                      onClick={() => {
+                        setSelectedInterconsulta(ic)
+                        setShowModal(true)
+                      }}
+                    >
+                      👁️ Ver detalle
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Nueva Interconsulta */}
+      {tabActiva === 'nueva' && (
+        <div className={styles['form-card']}>
+          <h3>➕ Crear Nueva Interconsulta</h3>
+          
+          {/* Paso 1: Buscar paciente */}
+          {!pacienteSeleccionado ? (
+            <div className={styles['form-section']}>
+              <h4>1. Buscar Paciente</h4>
+              <div className={styles['search-box']}>
+                <input
+                  type="text"
+                  placeholder="Ingrese cédula del paciente (Ej: V-12345678)"
+                  value={searchCI}
+                  onChange={(e) => setSearchCI(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && buscarPaciente()}
+                />
+                <button onClick={buscarPaciente} disabled={searching}>
+                  {searching ? '🔄 Buscando...' : '🔍 Buscar'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Paciente seleccionado */}
+              <div className={styles['patient-summary']}>
+                <div className={styles['patient-details']}>
+                  <p><strong>Paciente:</strong> {pacienteSeleccionado.apellidosNombres}</p>
+                  <p><strong>CI:</strong> {pacienteSeleccionado.ci}</p>
+                  <p><strong>Historia:</strong> {pacienteSeleccionado.nroHistoria}</p>
+                </div>
+                <button 
+                  className={styles['change-patient-btn']} 
+                  onClick={() => setPacienteSeleccionado(null)}
+                >
+                  Cambiar paciente
+                </button>
+              </div>
+
+              {/* Formulario de interconsulta */}
+              <form onSubmit={crearInterconsulta}>
+                <div className={styles['form-section']}>
+                  <h4>2. Datos de la Interconsulta</h4>
+                  <div className={styles['form-grid']}>
+                    <div className={styles['form-group']}>
+                      <label>Especialidad Destino *</label>
+                      <select
+                        value={formData.especialidadDestino}
+                        onChange={(e) => setFormData({...formData, especialidadDestino: e.target.value})}
+                        required
+                      >
+                        <option value="">Seleccione especialidad</option>
+                        {interconsultasService.ESPECIALIDADES_MEDICAS.map(esp => (
+                          <option key={esp} value={esp}>{esp}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className={styles['form-group']}>
+                      <label>Prioridad *</label>
+                      <select
+                        value={formData.prioridad}
+                        onChange={(e) => setFormData({...formData, prioridad: e.target.value as PrioridadInterconsulta})}
+                      >
+                        {interconsultasService.PRIORIDADES_INTERCONSULTA.map(p => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className={`${styles['form-group']} ${styles['full-width']}`}>
+                      <label>Motivo de la Interconsulta *</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Describa el motivo de la solicitud de interconsulta..."
+                        value={formData.motivo}
+                        onChange={(e) => setFormData({...formData, motivo: e.target.value})}
+                        required
+                      />
+                    </div>
+
+                    <div className={`${styles['form-group']} ${styles['full-width']}`}>
+                      <label>Diagnóstico Previo</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Diagnóstico o impresión diagnóstica actual..."
+                        value={formData.diagnosticoPrevio}
+                        onChange={(e) => setFormData({...formData, diagnosticoPrevio: e.target.value})}
+                      />
+                    </div>
+
+                    <div className={`${styles['form-group']} ${styles['full-width']}`}>
+                      <label>Observaciones Adicionales</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Información adicional relevante..."
+                        value={formData.observaciones}
+                        onChange={(e) => setFormData({...formData, observaciones: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles['form-actions']}>
+                  <button 
+                    type="button" 
+                    className={styles['btn-secondary']}
+                    onClick={() => {
+                      setPacienteSeleccionado(null)
+                      setFormData({
+                        especialidadDestino: '',
+                        prioridad: 'MEDIA',
+                        motivo: '',
+                        diagnosticoPrevio: '',
+                        observaciones: ''
+                      })
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className={styles['btn-primary']}
+                    disabled={creando}
+                  >
+                    {creando ? '⏳ Enviando...' : '📤 Enviar Interconsulta'}
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Modal de detalle/respuesta */}
+      {showModal && selectedInterconsulta && (
+        <InterconsultaModal
+          interconsulta={selectedInterconsulta}
+          onClose={() => {
+            setShowModal(false)
+            setSelectedInterconsulta(null)
+          }}
+          onUpdate={cargarInterconsultas}
+          medicoId={medicoId}
+        />
+      )}
+    </section>
+  )
+}
+
+// ==========================================
+// COMPONENTE: Modal de Interconsulta
+// ==========================================
+function InterconsultaModal({ 
+  interconsulta, 
+  onClose, 
+  onUpdate,
+  medicoId 
+}: { 
+  interconsulta: Interconsulta
+  onClose: () => void
+  onUpdate: () => void
+  medicoId: number
+}) {
+  const [respuesta, setRespuesta] = useState('')
+  const [observaciones, setObservaciones] = useState('')
+  const [enviando, setEnviando] = useState(false)
+
+  const puedeResponder = interconsulta.estado === 'EN_PROCESO' && interconsulta.medicoDestinoId === medicoId
+
+  const completarInterconsulta = async () => {
+    if (!respuesta.trim()) {
+      alert('Debe ingresar una respuesta')
+      return
+    }
+    setEnviando(true)
+    try {
+      await interconsultasService.completarInterconsulta(interconsulta.id, {
+        respuesta,
+        observaciones
+      })
+      alert('✅ Interconsulta completada')
+      onUpdate()
+      onClose()
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al completar'
+      alert('❌ ' + errorMessage)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className={styles['modal-overlay']} onClick={onClose}>
+      <div className={styles['modal-content']} onClick={e => e.stopPropagation()}>
+        <div className={styles['modal-header']}>
+          <h3>📋 Detalle de Interconsulta</h3>
+          <button className={styles['close-btn']} onClick={onClose}>×</button>
+        </div>
+        
+        <div className={styles['modal-body']}>
+          <div className={styles['detail-section']}>
+            <h4>Paciente</h4>
+            <p><strong>Nombre:</strong> {interconsulta.paciente?.nombre} {interconsulta.paciente?.apellido}</p>
+            <p><strong>Cédula:</strong> {interconsulta.paciente?.cedula}</p>
+          </div>
+
+          <div className={styles['detail-section']}>
+            <h4>Solicitud</h4>
+            <p><strong>Especialidad:</strong> {interconsulta.especialidadDestino}</p>
+            <p><strong>Prioridad:</strong> {interconsulta.prioridad}</p>
+            <p><strong>Estado:</strong> {interconsulta.estado}</p>
+            <p><strong>Motivo:</strong> {interconsulta.motivo}</p>
+            {interconsulta.diagnosticoPrevio && (
+              <p><strong>Diagnóstico Previo:</strong> {interconsulta.diagnosticoPrevio}</p>
+            )}
+            <p><strong>Solicitado por:</strong> Dr. {interconsulta.medicoSolicitante?.nombre} {interconsulta.medicoSolicitante?.apellido}</p>
+            <p><strong>Fecha:</strong> {formatDateTimeVenezuela(interconsulta.fechaSolicitud)}</p>
+          </div>
+
+          {interconsulta.respuesta && (
+            <div className={styles['detail-section']}>
+              <h4>Respuesta</h4>
+              <p>{interconsulta.respuesta}</p>
+              {interconsulta.fechaRespuesta && (
+                <p><small>Respondido: {formatDateTimeVenezuela(interconsulta.fechaRespuesta)}</small></p>
+              )}
+            </div>
+          )}
+
+          {puedeResponder && (
+            <div className={styles['detail-section']}>
+              <h4>📝 Su Respuesta</h4>
+              <div className={styles['form-group']}>
+                <label>Evaluación / Recomendaciones *</label>
+                <textarea
+                  rows={4}
+                  placeholder="Ingrese su evaluación y recomendaciones..."
+                  value={respuesta}
+                  onChange={(e) => setRespuesta(e.target.value)}
+                />
+              </div>
+              <div className={styles['form-group']}>
+                <label>Observaciones adicionales</label>
+                <textarea
+                  rows={2}
+                  placeholder="Notas adicionales..."
+                  value={observaciones}
+                  onChange={(e) => setObservaciones(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={styles['modal-footer']}>
+          <button className={styles['btn-secondary']} onClick={onClose}>
+            Cerrar
+          </button>
+          {puedeResponder && (
+            <button 
+              className={styles['btn-primary']} 
+              onClick={completarInterconsulta}
+              disabled={enviando}
+            >
+              {enviando ? '⏳ Enviando...' : '✅ Completar Interconsulta'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
