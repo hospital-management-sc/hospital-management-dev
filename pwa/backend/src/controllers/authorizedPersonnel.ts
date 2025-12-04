@@ -210,7 +210,7 @@ export const create = async (req: AuthRequest, res: Response): Promise<void> => 
         fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : undefined,
         autorizadoPor: req.user?.nombre || 'Sistema',
       },
-      BigInt(req.user!.id)
+      Number(req.user!.id)
     );
 
     // Convert BigInt to number for JSON serialization
@@ -266,7 +266,7 @@ export const update = async (req: AuthRequest, res: Response): Promise<void> => 
     const updatedPersonnel = await updateAuthorizedPersonnel(
       ci,
       updateData,
-      BigInt(req.user!.id)
+      Number(req.user!.id)
     );
 
     // Convert BigInt to number for JSON serialization
@@ -321,7 +321,7 @@ export const deactivate = async (req: AuthRequest, res: Response): Promise<void>
     const updatedPersonnel = await deactivateAuthorizedPersonnel(
       ci,
       motivoBaja,
-      BigInt(req.user!.id)
+      Number(req.user!.id)
     );
 
     // Convert BigInt to number for JSON serialization
@@ -391,7 +391,7 @@ export const bulkCreate = async (req: AuthRequest, res: Response): Promise<void>
             fechaVencimiento: person.fechaVencimiento ? new Date(person.fechaVencimiento) : undefined,
             autorizadoPor: req.user?.nombre || 'Sistema (Carga Masiva)',
           },
-          BigInt(req.user!.id)
+          Number(req.user!.id)
         );
 
         results.created.push({

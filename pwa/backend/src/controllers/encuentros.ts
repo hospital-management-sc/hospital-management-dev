@@ -80,7 +80,7 @@ export const crearEncuentro = async (
 
     // Verificar que el paciente existe
     const paciente = await prisma.paciente.findUnique({
-      where: { id: BigInt(pacienteId) },
+      where: { id: Number(pacienteId) },
     });
 
     if (!paciente) {
@@ -96,8 +96,8 @@ export const crearEncuentro = async (
       // Crear encuentro
       const encuentro = await tx.encuentro.create({
         data: {
-          pacienteId: BigInt(pacienteId),
-          admisionId: admisionId ? BigInt(admisionId) : null,
+          pacienteId: Number(pacienteId),
+          admisionId: admisionId ? Number(admisionId) : null,
           tipo,
           fecha: fecha ? new Date(fecha) : new Date(),
           hora: hora ? new Date(`1970-01-01T${hora}:00`) : new Date(),
@@ -105,7 +105,7 @@ export const crearEncuentro = async (
           enfermedadActual,
           procedencia,
           nroCama,
-          createdById: BigInt(createdById),
+          createdById: Number(createdById),
         },
       });
 
@@ -208,7 +208,7 @@ export const crearEncuentroDesdeCita = async (
 
     // Verificar que la cita existe y está programada
     const cita = await prisma.cita.findUnique({
-      where: { id: BigInt(citaId) },
+      where: { id: Number(citaId) },
       include: {
         paciente: true,
       },
@@ -242,7 +242,7 @@ export const crearEncuentroDesdeCita = async (
           motivoConsulta: motivoConsulta || cita.motivo,
           enfermedadActual,
           procedencia: 'CITA_PROGRAMADA',
-          createdById: BigInt(medicoId),
+          createdById: Number(medicoId),
         },
       });
 
@@ -275,7 +275,7 @@ export const crearEncuentroDesdeCita = async (
 
       // Actualizar estado de la cita
       await tx.cita.update({
-        where: { id: BigInt(citaId) },
+        where: { id: Number(citaId) },
         data: {
           estado: 'COMPLETADA',
           notas: observaciones,
@@ -346,7 +346,7 @@ export const obtenerEncuentrosPorPaciente = async (
 
     // Verificar que el paciente existe
     const paciente = await prisma.paciente.findUnique({
-      where: { id: BigInt(pacienteId) },
+      where: { id: Number(pacienteId) },
     });
 
     if (!paciente) {
@@ -359,7 +359,7 @@ export const obtenerEncuentrosPorPaciente = async (
     // Obtener encuentros con información relacionada
     const encuentros = await prisma.encuentro.findMany({
       where: {
-        pacienteId: BigInt(pacienteId),
+        pacienteId: Number(pacienteId),
       },
       include: {
         createdBy: {
@@ -428,7 +428,7 @@ export const obtenerEncuentroPorId = async (
 
     // Obtener encuentro con toda la información relacionada
     const encuentro = await prisma.encuentro.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       include: {
         paciente: {
           select: {

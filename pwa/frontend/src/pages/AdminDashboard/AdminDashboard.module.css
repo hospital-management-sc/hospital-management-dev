@@ -218,21 +218,21 @@
 
 .form-section-header {
   padding: 1.5rem 0 1rem 0;
-  border-bottom: 3px solid var(--color-primary);
+  border-bottom: 3px solid #e5e7eb;
   margin-bottom: 1.5rem;
   margin-top: 2rem;
 }
 
 .form-section-header:first-of-type {
   margin-top: 0;
-  border-bottom: 3px solid var(--color-primary);
+  border-bottom: 3px solid #e5e7eb;
   padding-bottom: 1rem;
 }
 
 .form-section-header h3 {
   margin: 0;
   font-size: 1.15rem;
-  color: var(--color-primary);
+  color: #e5e7eb;
   font-weight: 700;
   letter-spacing: 0.3px;
 }

@@ -22,7 +22,7 @@ const prisma = getPrismaClient();
 // ============================================
 
 export interface AuthorizedPersonnelRecord {
-  id: bigint;
+  id: number;
   ci: string;
   nombreCompleto: string;
   email: string | null;
@@ -34,7 +34,7 @@ export interface AuthorizedPersonnelRecord {
   fechaVencimiento: Date | null;
   registrado: boolean;
   fechaRegistro: Date | null;
-  usuarioId: bigint | null;
+  usuarioId: number | null;
 }
 
 export interface VerificationResult {
@@ -241,7 +241,7 @@ function areNamesSimilar(name1: string, name2: string): boolean {
  */
 export const markAsRegistered = async (
   ci: string,
-  usuarioId: bigint
+  usuarioId: number
 ): Promise<void> => {
   try {
     await prisma.personalAutorizado.update({
@@ -325,7 +325,7 @@ export const getAuthorizedPersonnelByCI = async (ci: string) => {
  */
 export const addAuthorizedPersonnel = async (
   input: CreateAuthorizedPersonnelInput,
-  adminUserId: bigint
+  adminUserId: number
 ) => {
   // Validar CI
   const ciRegex = /^[VEP]\d{7,9}$/;
@@ -391,7 +391,7 @@ export const addAuthorizedPersonnel = async (
 export const updateAuthorizedPersonnel = async (
   ci: string,
   input: UpdateAuthorizedPersonnelInput,
-  adminUserId: bigint
+  adminUserId: number
 ) => {
   const existing = await prisma.personalAutorizado.findUnique({
     where: { ci: ci.toUpperCase() },
@@ -446,7 +446,7 @@ export const updateAuthorizedPersonnel = async (
 export const deactivateAuthorizedPersonnel = async (
   ci: string,
   motivoBaja: string,
-  adminUserId: bigint
+  adminUserId: number
 ) => {
   const existing = await prisma.personalAutorizado.findUnique({
     where: { ci: ci.toUpperCase() },

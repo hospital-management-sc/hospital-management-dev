@@ -16,7 +16,7 @@ datasource db {
 // Gestionado exclusivamente por autoridades del hospital
 // ============================================
 model PersonalAutorizado {
-  id                BigInt   @id @default(autoincrement())
+  id                Int   @id @default(autoincrement())
   ci                String   @unique @db.VarChar(50) // Cédula de identidad (único identificador)
   nombreCompleto    String   @db.VarChar(200) // Nombre como aparece en documentos oficiales
   email             String?  @db.VarChar(200) // Email institucional (opcional para pre-registro)
@@ -36,7 +36,7 @@ model PersonalAutorizado {
   // Control de registro
   registrado        Boolean  @default(false) // Si ya creó su cuenta en el sistema
   fechaRegistro     DateTime? @db.Timestamptz // Cuándo se registró en la PWA
-  usuarioId         BigInt?  @unique // Referencia al usuario creado (1:1)
+  usuarioId         Int?  @unique // Referencia al usuario creado (1:1)
   
   createdAt         DateTime @default(now()) @db.Timestamptz()
   updatedAt         DateTime @updatedAt @db.Timestamptz()
@@ -54,17 +54,19 @@ model PersonalAutorizado {
 // PACIENTES - Información básica del paciente
 // ============================================
 model Paciente {
-  id               BigInt    @id @default(autoincrement())
+  id               Int    @id @default(autoincrement())
   nroHistoria      String    @unique @db.VarChar(50)
   apellidosNombres String    @db.VarChar(200)
   ci               String    @unique @db.VarChar(50)
   fechaNacimiento  DateTime? @db.Date
   sexo             String?   @db.VarChar(3) // CHECK: M, F
-  nacionalidad     String?   @db.VarChar(100)
-  direccion        String?   @db.VarChar(300)
-  telefono         String?   @db.VarChar(50)
-  lugarNacimiento  String?   @db.VarChar(200)
-  estado           String?   @db.VarChar(100)
+  nacionalidad        String?   @db.VarChar(100)
+  direccion           String?   @db.VarChar(300)
+  telefono            String?   @db.VarChar(50)
+  telefonoEmergencia  String?   @db.VarChar(50)
+  lugarNacimiento     String?   @db.VarChar(200)
+  religion            String?   @db.VarChar(100)
+  estado              String?   @db.VarChar(100)
   region           String?   @db.VarChar(100)
   estadoRegistro   String    @default("PERMANENTE") @db.VarChar(50) // TEMPORAL | PERMANENTE | NN
   createdAt        DateTime  @default(now()) @db.Timestamptz()
@@ -88,8 +90,8 @@ model Paciente {
 // PERSONAL MILITAR - Info militar del paciente
 // ============================================
 model PersonalMilitar {
-  id            BigInt  @id @default(autoincrement())
-  pacienteId    BigInt  @unique
+  id            Int  @id @default(autoincrement())
+  pacienteId    Int  @unique
   grado         String? @db.VarChar(50)
   componente    String? @db.VarChar(100)
   unidad        String? @db.VarChar(200)
@@ -103,7 +105,7 @@ model PersonalMilitar {
 // USUARIOS - Médicos y administrativos
 // ============================================
 model Usuario {
-  id        BigInt   @id @default(autoincrement())
+  id        Int   @id @default(autoincrement())
   nombre    String   @db.VarChar(200)
   email     String   @unique @db.VarChar(200)
   password  String   @db.VarChar(255)
@@ -138,8 +140,8 @@ model Usuario {
 // ADMISION - Registro de admisión inicial
 // ============================================
 model Admision {
-  id         BigInt @id @default(autoincrement())
-  pacienteId BigInt
+  id         Int @id @default(autoincrement())
+  pacienteId Int
 
   // Tipo y servicio (null para admisión inicial, se completa con "Registrar Admisión")
   tipo            String?  @db.VarChar(50) // EMERGENCIA | HOSPITALIZACION | CONSULTA_EXTERNA | UCI | CIRUGIA
@@ -167,7 +169,7 @@ model Admision {
   firmaFacultativo String? @db.VarChar(200)
   observaciones    String? @db.Text
 
-  createdById BigInt?
+  createdById Int?
   createdAt   DateTime @default(now()) @db.Timestamptz()
   updatedAt   DateTime @updatedAt @db.Timestamptz()
 
@@ -191,12 +193,12 @@ model Admision {
 // ESTANCIA HOSPITALARIA - Alta y cálculo días
 // ============================================
 model EstanciaHospitalaria {
-  id                   BigInt    @id @default(autoincrement())
-  admisionId           BigInt    @unique
+  id                   Int    @id @default(autoincrement())
+  admisionId           Int    @unique
   fechaAlta            DateTime? @db.Date
   diasHosp             Int?
-  diagnosticoIngresoId BigInt?
-  diagnosticoEgresoId  BigInt?
+  diagnosticoIngresoId Int?
+  diagnosticoEgresoId  Int?
   notas                String?   @db.Text
   updatedAt            DateTime  @updatedAt @db.Timestamptz()
 
@@ -210,7 +212,7 @@ model EstanciaHospitalaria {
 // DIAGNOSTICOS - Catálogo de diagnósticos CIE
 // ============================================
 model Diagnostico {
-  id          BigInt   @id @default(autoincrement())
+  id          Int   @id @default(autoincrement())
   codigoCie   String?  @db.VarChar(20)
   descripcion String   @db.VarChar(500)
   tipo        String?  @db.VarChar(20)
@@ -227,9 +229,9 @@ model Diagnostico {
 // ENCUENTROS - Visitas/atenciones (emergencia, hospitalización, consulta)
 // ============================================
 model Encuentro {
-  id               BigInt    @id @default(autoincrement())
-  pacienteId       BigInt
-  admisionId       BigInt?
+  id               Int    @id @default(autoincrement())
+  pacienteId       Int
+  admisionId       Int?
   tipo             String    @db.VarChar(30) // CHECK: EMERGENCIA, HOSPITALIZACION, CONSULTA, OTRO
   fecha            DateTime  @db.Date
   hora             DateTime? @db.Time
@@ -237,7 +239,7 @@ model Encuentro {
   enfermedadActual String?   @db.Text
   procedencia      String?   @db.VarChar(200)
   nroCama          String?   @db.VarChar(50)
-  createdById      BigInt?
+  createdById      Int?
   createdAt        DateTime  @default(now()) @db.Timestamptz()
   updatedAt        DateTime  @updatedAt @db.Timestamptz()
 
@@ -256,8 +258,8 @@ model Encuentro {
 // SIGNOS VITALES - Presión, pulso, temperatura, etc
 // ============================================
 model SignosVitales {
-  id            BigInt   @id @default(autoincrement())
-  encuentroId   BigInt
+  id            Int   @id @default(autoincrement())
+  encuentroId   Int
   taSistolica   Int?
   taDiastolica  Int?
   pulso         Int?
@@ -276,8 +278,8 @@ model SignosVitales {
 // EXAMEN REGIONAL - Examen físico por regiones
 // ============================================
 model ExamenRegional {
-  id          BigInt  @id @default(autoincrement())
-  encuentroId BigInt  @unique
+  id          Int  @id @default(autoincrement())
+  encuentroId Int  @unique
   piel        String? @db.Text
   cabeza      String? @db.Text
   cuello      String? @db.Text
@@ -296,8 +298,8 @@ model ExamenRegional {
 // ANTECEDENTES - Historial personal/familiar
 // ============================================
 model Antecedente {
-  id           BigInt   @id @default(autoincrement())
-  pacienteId   BigInt
+  id           Int   @id @default(autoincrement())
+  pacienteId   Int
   tipo         String   @db.VarChar(20) // CHECK: PERSONAL, FAMILIAR, OTRO
   descripcion  String   @db.Text
   registradoEn DateTime @default(now()) @db.Timestamptz()
@@ -312,8 +314,8 @@ model Antecedente {
 // IMPRESIONES DIAGNOSTICAS - Diagnósticos del encuentro
 // ============================================
 model ImpresionDiagnostica {
-  id          BigInt   @id @default(autoincrement())
-  encuentroId BigInt
+  id          Int   @id @default(autoincrement())
+  encuentroId Int
   codigoCie   String?  @db.VarChar(20)
   descripcion String?  @db.Text
   clase       String   @default("PRESUNTIVO") @db.VarChar(20) // CHECK: PRESUNTIVO, CONFIRMADO
@@ -330,10 +332,10 @@ model ImpresionDiagnostica {
 // AUDIT LOG - Cambios críticos y auditoría
 // ============================================
 model AuditLog {
-  id         BigInt   @id @default(autoincrement())
+  id         Int   @id @default(autoincrement())
   tabla      String   @db.VarChar(100)
-  registroId BigInt?
-  usuarioId  BigInt?
+  registroId Int?
+  usuarioId  Int?
   accion     String   @db.VarChar(50) // CREATE, UPDATE, DELETE
   detalle    Json? // Campo JSONB para detalles
   creadoEn   DateTime @default(now()) @db.Timestamptz()
@@ -349,9 +351,9 @@ model AuditLog {
 // CITA - Cita médica programada
 // ============================================
 model Cita {
-  id                  BigInt    @id @default(autoincrement())
-  pacienteId          BigInt
-  medicoId            BigInt?
+  id                  Int    @id @default(autoincrement())
+  pacienteId          Int
+  medicoId            Int?
   fechaCita           DateTime  @db.Date
   horaCita            DateTime? @db.Time
   especialidad        String    @db.VarChar(100)
@@ -375,8 +377,8 @@ model Cita {
 // FORMATO EMERGENCIA - Datos clínicos de emergencia
 // ============================================
 model FormatoEmergencia {
-  id         BigInt @id @default(autoincrement())
-  admisionId BigInt @unique
+  id         Int @id @default(autoincrement())
+  admisionId Int @unique
 
   // Datos clínicos
   motivoConsulta   String? @db.Text
@@ -409,9 +411,9 @@ model FormatoEmergencia {
 // FORMATO HOSPITALIZACION - Formato completo de hospitalización (11 secciones)
 // ============================================
 model FormatoHospitalizacion {
-  id         BigInt @id @default(autoincrement())
-  admisionId BigInt @unique
-  pacienteId BigInt
+  id         Int @id @default(autoincrement())
+  admisionId Int @unique
+  pacienteId Int
 
   // Metadatos
   fechaCreacion       DateTime @default(now()) @db.Timestamptz()
@@ -441,8 +443,8 @@ model FormatoHospitalizacion {
 // SIGNOS VITALES HOSPITALIZACION - Registro múltiple de signos vitales
 // ============================================
 model SignosVitalesHosp {
-  id            BigInt   @id @default(autoincrement())
-  formatoHospId BigInt
+  id            Int   @id @default(autoincrement())
+  formatoHospId Int
   fecha         DateTime @db.Date
   hora          DateTime @db.Time
 
@@ -456,7 +458,7 @@ model SignosVitalesHosp {
   spo2         Int? // Saturación de Oxígeno
 
   observacion   String?  @db.Text
-  registradoPor BigInt?
+  registradoPor Int?
   createdAt     DateTime @default(now()) @db.Timestamptz()
 
   // Relaciones
@@ -470,8 +472,8 @@ model SignosVitalesHosp {
 // LABORATORIO - Resultados de laboratorio (44 parámetros)
 // ============================================
 model Laboratorio {
-  id            BigInt    @id @default(autoincrement())
-  formatoHospId BigInt
+  id            Int    @id @default(autoincrement())
+  formatoHospId Int
   fecha         DateTime  @db.Date
   hora          DateTime? @db.Time
 
@@ -529,7 +531,7 @@ model Laboratorio {
   ckmb      Decimal? @db.Decimal(7, 2) // Creatinquinasa MB
 
   observaciones String?  @db.Text
-  registradoPor BigInt?
+  registradoPor Int?
   createdAt     DateTime @default(now()) @db.Timestamptz()
 
   // Relaciones
@@ -544,8 +546,8 @@ model Laboratorio {
 // ESTUDIO ESPECIAL - Estudios de imágenes y otros
 // ============================================
 model EstudioEspecial {
-  id            BigInt    @id @default(autoincrement())
-  formatoHospId BigInt
+  id            Int    @id @default(autoincrement())
+  formatoHospId Int
   fecha         DateTime  @db.Date
   hora          DateTime? @db.Time
 
@@ -554,7 +556,7 @@ model EstudioEspecial {
   resultado   String? @db.Text
   archivoUrl  String? @db.VarChar(500) // URL del archivo adjunto
 
-  registradoPor BigInt?
+  registradoPor Int?
   createdAt     DateTime @default(now()) @db.Timestamptz()
 
   // Relaciones
@@ -570,8 +572,8 @@ model EstudioEspecial {
 // ELECTROCARDIOGRAMA - Interpretación de EKG
 // ============================================
 model Electrocardiograma {
-  id            BigInt    @id @default(autoincrement())
-  formatoHospId BigInt
+  id            Int    @id @default(autoincrement())
+  formatoHospId Int
   fecha         DateTime  @db.Date
   hora          DateTime? @db.Time
 
@@ -581,7 +583,7 @@ model Electrocardiograma {
   hallazgos      String? @db.Text
   archivoUrl     String? @db.VarChar(500) // URL de la imagen del EKG
 
-  registradoPor BigInt?
+  registradoPor Int?
   createdAt     DateTime @default(now()) @db.Timestamptz()
 
   // Relaciones
@@ -596,8 +598,8 @@ model Electrocardiograma {
 // ANTECEDENTES DETALLADOS - Antecedentes completos del paciente (CLINICA II)
 // ============================================
 model AntecedentesDetallados {
-  id            BigInt @id @default(autoincrement())
-  formatoHospId BigInt @unique
+  id            Int @id @default(autoincrement())
+  formatoHospId Int @unique
 
   // Antecedentes Personales
   patologiaBase              String? @db.Text
@@ -661,8 +663,8 @@ model AntecedentesDetallados {
 // EXAMEN FUNCIONAL - Revisión por sistemas (CLINICA II)
 // ============================================
 model ExamenFuncional {
-  id            BigInt @id @default(autoincrement())
-  formatoHospId BigInt @unique
+  id            Int @id @default(autoincrement())
+  formatoHospId Int @unique
 
   general          String? @db.Text
   piel             String? @db.Text
@@ -692,8 +694,8 @@ model ExamenFuncional {
 // EXAMEN FISICO COMPLETO - Examen físico detallado (CLINICA III)
 // ============================================
 model ExamenFisicoCompleto {
-  id            BigInt    @id @default(autoincrement())
-  formatoHospId BigInt    @unique
+  id            Int    @id @default(autoincrement())
+  formatoHospId Int    @unique
   fecha         DateTime  @default(now()) @db.Date
   hora          DateTime? @db.Time
 
@@ -733,8 +735,8 @@ model ExamenFisicoCompleto {
 // RESUMEN DE INGRESO - Documento consolidado (CLINICA I + resumen)
 // ============================================
 model ResumenIngreso {
-  id            BigInt    @id @default(autoincrement())
-  formatoHospId BigInt    @unique
+  id            Int    @id @default(autoincrement())
+  formatoHospId Int    @unique
   fecha         DateTime  @db.Date
   hora          DateTime? @db.Time
 
@@ -764,8 +766,8 @@ model ResumenIngreso {
 // ORDEN MEDICA - Órdenes médicas durante hospitalización
 // ============================================
 model OrdenMedica {
-  id            BigInt   @id @default(autoincrement())
-  formatoHospId BigInt
+  id            Int   @id @default(autoincrement())
+  formatoHospId Int
   fecha         DateTime @db.Date
   hora          DateTime @db.Time
 
@@ -778,8 +780,8 @@ model OrdenMedica {
 
   archivoUrl String? @db.VarChar(500) // Recipe o documento adjunto
 
-  ordenadoPor BigInt?
-  cumplidaPor BigInt?
+  ordenadoPor Int?
+  cumplidaPor Int?
 
   createdAt DateTime @default(now()) @db.Timestamptz()
   updatedAt DateTime @updatedAt @db.Timestamptz()
@@ -799,8 +801,8 @@ model OrdenMedica {
 // EVOLUCION MEDICA - Notas de evolución diarias
 // ============================================
 model EvolucionMedica {
-  id            BigInt   @id @default(autoincrement())
-  formatoHospId BigInt
+  id            Int   @id @default(autoincrement())
+  formatoHospId Int
   fecha         DateTime @db.Date
   hora          DateTime @db.Time
   cama          String?  @db.VarChar(50)
@@ -829,7 +831,7 @@ model EvolucionMedica {
 
   notas String? @db.Text
 
-  evolucionadoPor BigInt?
+  evolucionadoPor Int?
   createdAt       DateTime @default(now()) @db.Timestamptz()
 
   // Relaciones
@@ -845,17 +847,17 @@ model EvolucionMedica {
 // Permite que un médico refiera/transfiera pacientes a otras especialidades
 // ============================================
 model Interconsulta {
-  id         BigInt   @id @default(autoincrement())
-  pacienteId BigInt
-  admisionId BigInt?  // Opcional: si está relacionada a una admisión activa
+  id         Int   @id @default(autoincrement())
+  pacienteId Int
+  admisionId Int?  // Opcional: si está relacionada a una admisión activa
 
   // Médico que solicita la interconsulta
-  medicoSolicitanteId BigInt
+  medicoSolicitanteId Int
   especialidadOrigen  String @db.VarChar(100) // Especialidad del médico solicitante
 
   // Destino de la interconsulta
   especialidadDestino String  @db.VarChar(100) // Especialidad a la que se refiere
-  medicoDestinoId     BigInt? // Médico específico (opcional, puede ser cualquiera de la especialidad)
+  medicoDestinoId     Int? // Médico específico (opcional, puede ser cualquiera de la especialidad)
 
   // Información clínica
   motivoInterconsulta   String  @db.Text // Por qué se solicita la interconsulta

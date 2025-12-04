@@ -69,7 +69,7 @@ export const crearInterconsulta = async (
 
     // Verificar que el paciente existe
     const paciente = await prisma.paciente.findUnique({
-      where: { id: BigInt(pacienteId) },
+      where: { id: Number(pacienteId) },
     });
 
     if (!paciente) {
@@ -82,7 +82,7 @@ export const crearInterconsulta = async (
 
     // Verificar que el médico solicitante existe
     const medicoSolicitante = await prisma.usuario.findUnique({
-      where: { id: BigInt(medicoSolicitanteId) },
+      where: { id: Number(medicoSolicitanteId) },
     });
 
     if (!medicoSolicitante) {
@@ -96,12 +96,12 @@ export const crearInterconsulta = async (
     // Crear la interconsulta
     const interconsulta = await prisma.interconsulta.create({
       data: {
-        pacienteId: BigInt(pacienteId),
-        admisionId: admisionId ? BigInt(admisionId) : null,
-        medicoSolicitanteId: BigInt(medicoSolicitanteId),
+        pacienteId: Number(pacienteId),
+        admisionId: admisionId ? Number(admisionId) : null,
+        medicoSolicitanteId: Number(medicoSolicitanteId),
         especialidadOrigen: especialidadOrigen || medicoSolicitante.especialidad || 'NO_ESPECIFICADA',
         especialidadDestino,
-        medicoDestinoId: medicoDestinoId ? BigInt(medicoDestinoId) : null,
+        medicoDestinoId: medicoDestinoId ? Number(medicoDestinoId) : null,
         motivoInterconsulta,
         resumenClinico,
         preguntaEspecifica,
@@ -234,7 +234,7 @@ export const obtenerInterconsultasRecibidas = async (
 
     // Obtener el médico para saber su especialidad
     const medico = await prisma.usuario.findUnique({
-      where: { id: BigInt(medicoId) },
+      where: { id: Number(medicoId) },
     });
 
     // Si el médico no existe, devolver array vacío (no es un error crítico)
@@ -251,7 +251,7 @@ export const obtenerInterconsultasRecibidas = async (
     // Buscar interconsultas dirigidas a este médico O a su especialidad
     const whereClause: any = {
       OR: [
-        { medicoDestinoId: BigInt(medicoId) },
+        { medicoDestinoId: Number(medicoId) },
         {
           AND: [
             { especialidadDestino: medico.especialidad },
@@ -330,7 +330,7 @@ export const obtenerInterconsultasEnviadas = async (
 
     const interconsultas = await prisma.interconsulta.findMany({
       where: {
-        medicoSolicitanteId: BigInt(medicoId),
+        medicoSolicitanteId: Number(medicoId),
       },
       include: {
         paciente: {
@@ -382,7 +382,7 @@ export const obtenerInterconsultasPaciente = async (
 
     const interconsultas = await prisma.interconsulta.findMany({
       where: {
-        pacienteId: BigInt(pacienteId),
+        pacienteId: Number(pacienteId),
       },
       include: {
         medicoSolicitante: {
@@ -440,7 +440,7 @@ export const aceptarInterconsulta = async (
     const { medicoDestinoId } = req.body;
 
     const interconsulta = await prisma.interconsulta.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     });
 
     if (!interconsulta) {
@@ -460,10 +460,10 @@ export const aceptarInterconsulta = async (
     }
 
     const interconsultaActualizada = await prisma.interconsulta.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'EN_PROCESO',
-        medicoDestinoId: BigInt(medicoDestinoId),
+        medicoDestinoId: Number(medicoDestinoId),
         fechaAceptacion: new Date(),
       },
       include: {
@@ -515,7 +515,7 @@ export const completarInterconsulta = async (
     }
 
     const interconsulta = await prisma.interconsulta.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     });
 
     if (!interconsulta) {
@@ -535,7 +535,7 @@ export const completarInterconsulta = async (
     }
 
     const interconsultaActualizada = await prisma.interconsulta.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'COMPLETADA',
         respuestaInterconsulta,
@@ -595,7 +595,7 @@ export const rechazarInterconsulta = async (
     const { motivoRechazo } = req.body;
 
     const interconsulta = await prisma.interconsulta.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     });
 
     if (!interconsulta) {
@@ -615,7 +615,7 @@ export const rechazarInterconsulta = async (
     }
 
     const interconsultaActualizada = await prisma.interconsulta.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'RECHAZADA',
         respuestaInterconsulta: motivoRechazo || 'Rechazada sin motivo especificado',
@@ -652,7 +652,7 @@ export const obtenerDetalleInterconsulta = async (
     const { id } = req.params;
 
     const interconsulta = await prisma.interconsulta.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       include: {
         paciente: {
           include: {

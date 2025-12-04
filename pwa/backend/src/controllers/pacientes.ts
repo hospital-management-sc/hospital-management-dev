@@ -69,6 +69,7 @@ export const crearPaciente = async (
       estado,
       direccion,
       telefono,
+      telefonoEmergencia,
       
       // Datos militares (opcional)
       grado,
@@ -133,6 +134,7 @@ export const crearPaciente = async (
           estado: estado || null,
           direccion: direccion || null,
           telefono: telefono || null,
+          telefonoEmergencia: telefonoEmergencia || null,
         },
       });
 
@@ -227,7 +229,7 @@ export const obtenerPaciente = async (
     const { id } = req.params;
 
     const paciente = await prisma.paciente.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       include: {
         personalMilitar: true,
         admisiones: true,
@@ -327,6 +329,39 @@ export const buscarPaciente = async (
     });
   } catch (error: any) {
     logger.error('Error al buscar paciente:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Obtener los últimos pacientes registrados
+ * GET /api/pacientes/ultimos?limit=1
+ */
+export const obtenerUltimos = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { limit = 1 } = req.query;
+    const limitNum = Math.min(parseInt(limit as string) || 1, 100);
+
+    const pacientes = await prisma.paciente.findMany({
+      take: limitNum,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        personalMilitar: true,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: convertBigIntToString(pacientes),
+    });
+  } catch (error: any) {
+    logger.error('Error al obtener últimos pacientes:', error);
     res.status(500).json({
       error: 'Internal Server Error',
       message: error.message,

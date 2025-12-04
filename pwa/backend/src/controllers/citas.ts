@@ -43,7 +43,7 @@ export const crearCita = async (req: Request, res: Response): Promise<void> => {
 
     // Validar que el paciente exista
     const pacienteExiste = await prisma.paciente.findUnique({
-      where: { id: BigInt(pacienteId) },
+      where: { id: Number(pacienteId) },
     })
 
     if (!pacienteExiste) {
@@ -57,7 +57,7 @@ export const crearCita = async (req: Request, res: Response): Promise<void> => {
     // Validar que el médico exista si se proporciona
     if (medicoId) {
       const medicoExiste = await prisma.usuario.findUnique({
-        where: { id: BigInt(medicoId) },
+        where: { id: Number(medicoId) },
       })
 
       if (!medicoExiste) {
@@ -72,8 +72,8 @@ export const crearCita = async (req: Request, res: Response): Promise<void> => {
     // Crear la cita
     const cita = await prisma.cita.create({
       data: {
-        pacienteId: BigInt(pacienteId),
-        medicoId: medicoId ? BigInt(medicoId) : null,
+        pacienteId: Number(pacienteId),
+        medicoId: medicoId ? Number(medicoId) : null,
         fechaCita: new Date(fechaCita), // PostgreSQL Date type
         horaCita: horaCita ? new Date(`1970-01-01T${horaCita}`) : null, // PostgreSQL Time type
         especialidad,
@@ -125,7 +125,7 @@ export const obtenerCitasPorPaciente = async (req: Request, res: Response): Prom
 
     // Validar que el paciente exista
     const pacienteExiste = await prisma.paciente.findUnique({
-      where: { id: BigInt(pacienteId) },
+      where: { id: Number(pacienteId) },
     })
 
     if (!pacienteExiste) {
@@ -137,7 +137,7 @@ export const obtenerCitasPorPaciente = async (req: Request, res: Response): Prom
     }
 
     // Construir filtro
-    const where: any = { pacienteId: BigInt(pacienteId) }
+    const where: any = { pacienteId: Number(pacienteId) }
     if (estado) {
       where.estado = estado as string
     }
@@ -188,7 +188,7 @@ export const obtenerCitasPorMedico = async (req: Request, res: Response): Promis
 
     // Validar que el médico exista
     const medicoExiste = await prisma.usuario.findUnique({
-      where: { id: BigInt(medicoId) },
+      where: { id: Number(medicoId) },
     })
 
     if (!medicoExiste) {
@@ -200,7 +200,7 @@ export const obtenerCitasPorMedico = async (req: Request, res: Response): Promis
     }
 
     // Construir filtro
-    const where: any = { medicoId: BigInt(medicoId) }
+    const where: any = { medicoId: Number(medicoId) }
     if (estado) {
       where.estado = estado as string
     }
@@ -256,7 +256,7 @@ export const obtenerCita = async (req: Request, res: Response): Promise<void> =>
     const { id } = req.params
 
     const cita = await prisma.cita.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       include: {
         paciente: true,
         medico: {
@@ -300,7 +300,7 @@ export const actualizarCita = async (req: Request, res: Response): Promise<void>
     const { fechaCita, horaCita, especialidad, motivo, estado, notas } = req.body
 
     const citaExiste = await prisma.cita.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     })
 
     if (!citaExiste) {
@@ -312,7 +312,7 @@ export const actualizarCita = async (req: Request, res: Response): Promise<void>
     }
 
     const cita = await prisma.cita.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         ...(fechaCita && { fechaCita: new Date(fechaCita) }),
         ...(horaCita && { horaCita: new Date(`1970-01-01T${horaCita}:00`) }),
@@ -364,7 +364,7 @@ export const cancelarCita = async (req: Request, res: Response): Promise<void> =
     const { motivo } = req.body
 
     const citaExiste = await prisma.cita.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     })
 
     if (!citaExiste) {
@@ -384,7 +384,7 @@ export const cancelarCita = async (req: Request, res: Response): Promise<void> =
     }
 
     const cita = await prisma.cita.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'CANCELADA',
         notas: motivo ? `Cancelada: ${motivo}` : 'Cancelada por usuario',
@@ -519,7 +519,7 @@ export const obtenerCitasHoyMedico = async (req: Request, res: Response): Promis
 
     // Validar que el médico exista y obtener su especialidad
     const medico = await prisma.usuario.findUnique({
-      where: { id: BigInt(medicoId) },
+      where: { id: Number(medicoId) },
     })
 
     if (!medico) {
@@ -551,7 +551,7 @@ export const obtenerCitasHoyMedico = async (req: Request, res: Response): Promis
           },
           {
             OR: [
-              { medicoId: BigInt(medicoId) },
+              { medicoId: Number(medicoId) },
               {
                 AND: [
                   { medicoId: null },
@@ -616,7 +616,7 @@ export const iniciarCita = async (req: Request, res: Response): Promise<void> =>
     const { id } = req.params
 
     const cita = await prisma.cita.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     })
 
     if (!cita) {
@@ -636,7 +636,7 @@ export const iniciarCita = async (req: Request, res: Response): Promise<void> =>
     }
 
     const citaActualizada = await prisma.cita.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'EN_PROCESO',
       },
@@ -676,7 +676,7 @@ export const completarCita = async (req: Request, res: Response): Promise<void> 
     const { notas } = req.body
 
     const cita = await prisma.cita.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     })
 
     if (!cita) {
@@ -696,7 +696,7 @@ export const completarCita = async (req: Request, res: Response): Promise<void> 
     }
 
     const citaActualizada = await prisma.cita.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'COMPLETADA',
         notas: notas || cita.notas,

@@ -31,7 +31,7 @@ export const crearAdmision = async (req: Request, res: Response) => {
 
     // Verificar que el paciente existe
     const paciente = await prisma.paciente.findUnique({
-      where: { id: BigInt(pacienteId) },
+      where: { id: Number(pacienteId) },
     });
 
     if (!paciente) {
@@ -47,7 +47,7 @@ export const crearAdmision = async (req: Request, res: Response) => {
     // Crear la admisión
     const admision = await prisma.admision.create({
       data: {
-        pacienteId: BigInt(pacienteId),
+        pacienteId: Number(pacienteId),
         tipo,
         servicio: servicio || null,
         fechaAdmision: new Date(fechaAdmision),
@@ -57,7 +57,7 @@ export const crearAdmision = async (req: Request, res: Response) => {
         cama: cama || null,
         estado: estadoInicial,
         observaciones: observaciones || null,
-        createdById: createdById ? BigInt(createdById) : null,
+        createdById: createdById ? Number(createdById) : null,
       },
       include: {
         paciente: {
@@ -109,7 +109,7 @@ export const obtenerAdmision = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const admision = await prisma.admision.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       include: {
         paciente: {
           select: {
@@ -181,7 +181,7 @@ export const listarAdmisionesPaciente = async (req: Request, res: Response) => {
     const { pacienteId } = req.params;
 
     const admisiones = await prisma.admision.findMany({
-      where: { pacienteId: BigInt(pacienteId) },
+      where: { pacienteId: Number(pacienteId) },
       include: {
         createdBy: {
           select: {
@@ -251,7 +251,7 @@ export const actualizarAdmision = async (req: Request, res: Response) => {
 
     // Verificar que la admisión existe
     const admisionExistente = await prisma.admision.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     });
 
     if (!admisionExistente) {
@@ -262,7 +262,7 @@ export const actualizarAdmision = async (req: Request, res: Response) => {
 
     // Actualizar admisión
     const admisionActualizada = await prisma.admision.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         servicio: servicio || undefined,
         habitacion: habitacion || undefined,
@@ -323,7 +323,7 @@ export const registrarAlta = async (req: Request, res: Response) => {
 
     // Verificar que la admisión existe y está activa
     const admisionExistente = await prisma.admision.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     });
 
     if (!admisionExistente) {
@@ -347,7 +347,7 @@ export const registrarAlta = async (req: Request, res: Response) => {
 
     // Actualizar admisión con alta
     const admisionActualizada = await prisma.admision.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'ALTA',
         fechaAlta: new Date(fechaAlta),
@@ -410,7 +410,7 @@ export const activarAdmision = async (req: Request, res: Response) => {
 
     // Verificar que la admisión existe
     const admisionExistente = await prisma.admision.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
     });
 
     if (!admisionExistente) {
@@ -433,7 +433,7 @@ export const activarAdmision = async (req: Request, res: Response) => {
 
     // Activar la admisión
     const admisionActualizada = await prisma.admision.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: {
         estado: 'ACTIVA',
       },

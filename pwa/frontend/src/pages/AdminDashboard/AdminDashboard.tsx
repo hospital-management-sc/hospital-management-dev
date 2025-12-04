@@ -9,10 +9,12 @@ import { useDashboardStats } from '@/hooks/useDashboardStats'
 import RegistrarAdmision from '@/components/RegistrarAdmision'
 import PacientesHospitalizados from '@/components/PacientesHospitalizados'
 import EncuentroDetailModal from '@/components/EncuentroDetailModal'
+import { SearchableSelect } from '@/components/SearchableSelect/SearchableSelect'
 import { encuentrosService } from '@/services/encuentros.service'
 import type { Encuentro } from '@/services/encuentros.service'
 import { API_BASE_URL } from '@/utils/constants'
 import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '@/utils/dateUtils'
+import { ESTADOS_VENEZUELA, NACIONALIDADES, RELIGIONES, GRADOS_MILITARES, COMPONENTES_MILITARES } from '@/constants/venezuela'
 
 type ViewMode = 'main' | 'register-patient' | 'create-appointment' | 'search-patient' | 'register-admission' | 'patient-history' | 'hospitalized-patients'
 
@@ -207,6 +209,8 @@ function RegisterPatientForm() {
     direccion: '',
     telefonoOperador: '0412',
     telefonoNumeros: '',
+    telefonoEmergenciaOperador: '0412',
+    telefonoEmergenciaNumeros: '',
     
     // PERSONAL MILITAR
     grado: '',
@@ -236,13 +240,6 @@ function RegisterPatientForm() {
     return edad
   }
 
-  // Validar formato de historia clínica (00-00-00)
-  const validateHistoria = (value: string): boolean => {
-    // Permitir entrada parcial (números y guiones)
-    const pattern = /^[\d-]*$/
-    return pattern.test(value)
-  }
-
   // Validar que el formato completo sea correcto
   const isHistoriaFormatValid = (value: string): boolean => {
     const pattern = /^\d{2}-\d{2}-\d{2}$/
@@ -261,19 +258,6 @@ function RegisterPatientForm() {
     return pattern.test(value)
   }
 
-  const handleHistoriaChange = (value: string) => {
-    // Permitir entrada parcial
-    if (validateHistoria(value)) {
-      setFormData({...formData, nroHistoria: value})
-      // Solo mostrar error si está completo pero mal formateado
-      if (value.length >= 8 && !isHistoriaFormatValid(value)) {
-        setErrors({...errors, nroHistoria: 'Formato: 00-00-00'})
-      } else {
-        setErrors({...errors, nroHistoria: ''})
-      }
-    }
-  }
-
   const handleCINumerosChange = (value: string) => {
     if (validateCINumeros(value)) {
       setFormData({...formData, ciNumeros: value})
@@ -287,6 +271,49 @@ function RegisterPatientForm() {
       setErrors({...errors, telefonoNumeros: ''})
     }
   }
+
+  const handleTelefonoEmergenciaNumerosChange = (value: string) => {
+    if (validateTelefonoNumeros(value)) {
+      setFormData({...formData, telefonoEmergenciaNumeros: value})
+      setErrors({...errors, telefonoEmergenciaNumeros: ''})
+    }
+  }
+
+  // Cargar el siguiente número de historia clínica de la BD
+  const cargarSiguienteNroHistoria = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pacientes/ultimos?limit=1`)
+      const result = await response.json()
+      
+      let siguiente = '00-00-01' // Valor por defecto si no hay pacientes
+      
+      if (result.success && result.data && result.data.length > 0) {
+        const ultimoPaciente = result.data[0]
+        const ultimoHistoria = ultimoPaciente.nroHistoria
+        
+        // Parsear el formato XX-XX-XX y convertir a número
+        const partes = ultimoHistoria.split('-')
+        const numeroCompleto = parseInt(partes.join(''), 10)
+        const siguienteNumero = numeroCompleto + 1
+        
+        // Convertir de vuelta al formato XX-XX-XX
+        const numeroStr = String(siguienteNumero).padStart(6, '0')
+        siguiente = `${numeroStr.slice(0, 2)}-${numeroStr.slice(2, 4)}-${numeroStr.slice(4, 6)}`
+      }
+      
+      setFormData({...formData, nroHistoria: siguiente})
+      setErrors({...errors, nroHistoria: ''})
+    } catch (error) {
+      console.error('Error al cargar siguiente número de historia:', error)
+      setFormData({...formData, nroHistoria: '00-00-01'})
+      setErrors({...errors, nroHistoria: ''})
+    }
+  }
+
+  // Cargar siguiente número al montar el componente
+  useEffect(() => {
+    cargarSiguienteNroHistoria()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -309,6 +336,7 @@ function RegisterPatientForm() {
 
     const ciCompleta = `${formData.ciTipo}-${formData.ciNumeros}`
     const telefonoCompleto = formData.telefonoNumeros ? `${formData.telefonoOperador}-${formData.telefonoNumeros}` : ''
+    const telefonoEmergenciaCompleto = formData.telefonoEmergenciaNumeros ? `${formData.telefonoEmergenciaOperador}-${formData.telefonoEmergenciaNumeros}` : ''
     
     // Preparar datos para enviar al backend
     const datosRegistro = {
@@ -329,6 +357,7 @@ function RegisterPatientForm() {
       religion: formData.religion,
       direccion: formData.direccion,
       telefono: telefonoCompleto,
+      telefonoEmergencia: telefonoEmergenciaCompleto,
       grado: formData.grado,
       estadoMilitar: formData.estadoMilitar,
       componente: formData.componente,
@@ -357,7 +386,7 @@ function RegisterPatientForm() {
       // Éxito - mostrar mensaje y limpiar formulario
       alert(`✅ Paciente registrado exitosamente\nNro. Historia: ${result.data.nroHistoria}\nCI: ${result.data.ci}`)
       
-      // Limpiar formulario
+      // Limpiar formulario SOLO si el registro fue exitoso
       setFormData({
         nroHistoria: '',
         formaIngreso: 'AMBULANTE',
@@ -377,6 +406,8 @@ function RegisterPatientForm() {
         direccion: '',
         telefonoOperador: '0412',
         telefonoNumeros: '',
+        telefonoEmergenciaOperador: '0412',
+        telefonoEmergenciaNumeros: '',
         grado: '',
         estadoMilitar: '',
         componente: '',
@@ -389,8 +420,9 @@ function RegisterPatientForm() {
       setErrors({})
     } catch (error: any) {
       console.error('Error:', error)
-      alert(`❌ Error: ${error.message}`)
-      setErrors({ submit: error.message })
+      // Mostrar error SIN limpiar el formulario
+      alert(`❌ Error: ${error.message}\n\nLos datos del formulario se han mantenido. Por favor, verifique los errores marcados en rojo.`)
+      // NO limpiar formData - mantener los datos ingresados
     }
   }
 
@@ -407,14 +439,14 @@ function RegisterPatientForm() {
 
         <div className={styles["form-grid"]}>
           <div className={styles["form-group"]}>
-            <label>Nro. Historia Clínica * <span className={styles["hint"]}>(00-00-00)</span></label>
+            <label>Nro. Historia Clínica * <span className={styles["hint"]}>(Autogenerado)</span></label>
             <input
               type="text"
               required
+              disabled
               value={formData.nroHistoria}
-              onChange={(e) => handleHistoriaChange(e.target.value)}
               placeholder="00-00-00"
-              maxLength={8}
+              title="Se genera automáticamente del último paciente registrado"
             />
             {errors.nroHistoria && <span className={styles["error-message"]}>{errors.nroHistoria}</span>}
           </div>
@@ -483,7 +515,7 @@ function RegisterPatientForm() {
               type="text"
               value={formData.firmaFacultativo}
               onChange={(e) => setFormData({...formData, firmaFacultativo: e.target.value})}
-              placeholder="Nombre y firma del médico"
+              placeholder="Nombre del médico"
             />
           </div>
 
@@ -551,7 +583,7 @@ function RegisterPatientForm() {
           </div>
 
           <div className={styles["form-group"]}>
-            <label>Edad (Calculada)</label>
+            <label>Edad</label>
             <input
               type="number"
               disabled
@@ -562,11 +594,11 @@ function RegisterPatientForm() {
 
           <div className={styles["form-group"]}>
             <label>Lugar de Nacimiento</label>
-            <input
-              type="text"
+            <SearchableSelect
+              options={ESTADOS_VENEZUELA}
               value={formData.lugarNacimiento}
-              onChange={(e) => setFormData({...formData, lugarNacimiento: e.target.value})}
-              placeholder="Ciudad, Estado"
+              onChange={(value) => setFormData({...formData, lugarNacimiento: value})}
+              placeholder="Buscar estado..."
             />
           </div>
 
@@ -586,31 +618,31 @@ function RegisterPatientForm() {
 
           <div className={styles["form-group"]}>
             <label>Nacionalidad</label>
-            <input
-              type="text"
+            <SearchableSelect
+              options={NACIONALIDADES}
               value={formData.nacionalidad}
-              onChange={(e) => setFormData({...formData, nacionalidad: e.target.value})}
-              placeholder="Venezolana"
+              onChange={(value) => setFormData({...formData, nacionalidad: value})}
+              placeholder="Buscar nacionalidad..."
             />
           </div>
 
           <div className={styles["form-group"]}>
-            <label>Estado</label>
-            <input
-              type="text"
+            <label>Estado de residencia</label>
+            <SearchableSelect
+              options={ESTADOS_VENEZUELA}
               value={formData.estado}
-              onChange={(e) => setFormData({...formData, estado: e.target.value})}
-              placeholder="Estado de residencia"
+              onChange={(value) => setFormData({...formData, estado: value})}
+              placeholder="Buscar estado..."
             />
           </div>
 
           <div className={styles["form-group"]}>
             <label>Religión</label>
-            <input
-              type="text"
+            <SearchableSelect
+              options={RELIGIONES}
               value={formData.religion}
-              onChange={(e) => setFormData({...formData, religion: e.target.value})}
-              placeholder="Religión"
+              onChange={(value) => setFormData({...formData, religion: value})}
+              placeholder="Buscar religión..."
             />
           </div>
 
@@ -647,6 +679,30 @@ function RegisterPatientForm() {
               />
             </div>
           </div>
+
+          <div className={styles["form-group"]}>
+            <label>Teléfono de Emergencia <span className={styles["hint"]}>(Familiar)</span></label>
+            <div className={styles["dual-input-group"]}>
+              <select
+                value={formData.telefonoEmergenciaOperador}
+                onChange={(e) => setFormData({...formData, telefonoEmergenciaOperador: e.target.value})}
+              >
+                <option value="0412">0412</option>
+                <option value="0422">0422</option>
+                <option value="0416">0416</option>
+                <option value="0426">0426</option>
+                <option value="0414">0414</option>
+                <option value="0424">0424</option>
+              </select>
+              <input
+                type="text"
+                value={formData.telefonoEmergenciaNumeros}
+                onChange={(e) => handleTelefonoEmergenciaNumerosChange(e.target.value)}
+                placeholder="1234567"
+                maxLength={7}
+              />
+            </div>
+          </div>
         </div>
 
         {/* SECCIÓN 3: DATOS DE PERSONAL MILITAR */}
@@ -655,25 +711,21 @@ function RegisterPatientForm() {
         </div>
 
         <div className={styles["form-grid"]}>
-          <div className={styles["form-group"]}>
-            <label>Grado</label>
-            <input
-              type="text"
-              value={formData.grado}
-              onChange={(e) => setFormData({...formData, grado: e.target.value})}
-              placeholder="Ej: Capitán, Teniente"
-            />
-          </div>
+          <SearchableSelect
+            label="Grado"
+            options={GRADOS_MILITARES}
+            value={formData.grado}
+            onChange={(value) => setFormData({...formData, grado: value})}
+            placeholder="Seleccione el grado militar"
+          />
 
-          <div className={styles["form-group"]}>
-            <label>Componente</label>
-            <input
-              type="text"
-              value={formData.componente}
-              onChange={(e) => setFormData({...formData, componente: e.target.value})}
-              placeholder="Ej: Ejército, Aviación"
-            />
-          </div>
+          <SearchableSelect
+            label="Componente"
+            options={COMPONENTES_MILITARES}
+            value={formData.componente}
+            onChange={(value) => setFormData({...formData, componente: value})}
+            placeholder="Seleccione el componente militar"
+          />
 
           <div className={styles["form-group"]}>
             <label>Unidad</label>
@@ -749,6 +801,8 @@ function RegisterPatientForm() {
                 direccion: '',
                 telefonoOperador: '0412',
                 telefonoNumeros: '',
+                telefonoEmergenciaOperador: '0412',
+                telefonoEmergenciaNumeros: '',
                 grado: '',
                 estadoMilitar: '',
                 componente: '',
