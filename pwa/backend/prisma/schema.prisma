@@ -382,7 +382,7 @@ model Cita {
   pacienteId          Int
   medicoId            Int?
   fechaCita           DateTime  @db.Date
-  horaCita            DateTime? @db.Time
+  horaCita            String?   @db.VarChar(8) // Formato: HH:MM:SS o HH:MM
   especialidad        String    @db.VarChar(100)
   motivo              String?   @db.VarChar(500)
   estado              String    @default("PROGRAMADA") @db.VarChar(50) // CHECK: PROGRAMADA, REALIZADA, CANCELADA, NO_ASISTIO

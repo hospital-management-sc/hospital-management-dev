@@ -8,7 +8,7 @@ import EncuentroDetailModal from '@/components/EncuentroDetailModal'
 import { encuentrosService } from '@/services/encuentros.service'
 import type { Encuentro } from '@/services/encuentros.service'
 import { API_BASE_URL } from '@/utils/constants'
-import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '@/utils/dateUtils'
+import { formatDateVenezuela, formatDateLocal, formatTimeMilitaryVenezuela, calculateAge } from '@/utils/dateUtils'
 import styles from '../AdminDashboard.module.css'
 
 interface PatientHistoryViewProps {
@@ -70,88 +70,8 @@ export function PatientHistoryView({ patient, onBack }: PatientHistoryViewProps)
     setEncuentroSeleccionado(null)
   }
 
-  const calcularEdad = (fechaNac: any): number => {
-    if (!fechaNac) return 0
-    try {
-      let fechaStr: string
-      if (typeof fechaNac === 'string') {
-        fechaStr = fechaNac.split('T')[0]
-      } else if (fechaNac instanceof Date) {
-        fechaStr = fechaNac.toISOString().split('T')[0]
-      } else {
-        return 0
-      }
-      
-      const [year, month, day] = fechaStr.split('-').map(Number)
-      const nac = new Date(year, month - 1, day)
-      
-      if (isNaN(nac.getTime())) return 0
-      
-      const hoy = new Date()
-      let edad = hoy.getFullYear() - nac.getFullYear()
-      const diferenciaMeses = hoy.getMonth() - nac.getMonth()
-      if (diferenciaMeses < 0 || (diferenciaMeses === 0 && hoy.getDate() < nac.getDate())) {
-        edad--
-      }
-      return edad
-    } catch {
-      return 0
-    }
-  }
-
-  const formatearFecha = (fecha: any): string => {
-    if (!fecha) return 'N/A'
-    try {
-      let fechaStr: string
-      if (typeof fecha === 'string') {
-        fechaStr = fecha.split('T')[0]
-      } else if (fecha instanceof Date) {
-        fechaStr = fecha.toISOString().split('T')[0]
-      } else {
-        return 'N/A'
-      }
-      
-      const [year, month, day] = fechaStr.split('-').map(Number)
-      const fechaObj = new Date(year, month - 1, day)
-      
-      return isNaN(fechaObj.getTime()) ? 'N/A' : fechaObj.toLocaleDateString(VENEZUELA_LOCALE, { 
-        timeZone: VENEZUELA_TIMEZONE,
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      })
-    } catch {
-      return 'N/A'
-    }
-  }
-
-  const formatearHora = (hora: any): string => {
-    if (!hora) return 'N/A'
-    try {
-      let horaDate: Date
-      
-      if (typeof hora === 'string') {
-        // Puede venir como "14:30:00" o "1970-01-01T14:30:00.000Z"
-        if (hora.includes('T')) {
-          horaDate = new Date(hora)
-        } else {
-          // Formato "HH:MM:SS"
-          const [hh, mm] = hora.split(':')
-          return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`
-        }
-      } else if (hora instanceof Date) {
-        horaDate = hora
-      } else {
-        return 'N/A'
-      }
-      
-      const horas = horaDate.getHours().toString().padStart(2, '0')
-      const minutos = horaDate.getMinutes().toString().padStart(2, '0')
-      return `${horas}:${minutos}`
-    } catch {
-      return 'N/A'
-    }
-  }
+  // Usar funciones de dateUtils.ts alineadas con test-timezone.ts
+  // Las funciones calcularEdad, formatearFecha y formatearHora ahora se importan directamente
 
   // Construir timeline de eventos
   const construirTimeline = () => {
@@ -254,12 +174,6 @@ export function PatientHistoryView({ patient, onBack }: PatientHistoryViewProps)
     // Eventos: Citas médicas
     if (historiaCompleta.citas && historiaCompleta.citas.length > 0) {
       historiaCompleta.citas.forEach((cita: any) => {
-        console.log('🔍 Procesando cita:', {
-          fechaCita: cita.fechaCita,
-          horaCita: cita.horaCita,
-          estado: cita.estado
-        })
-        
         const estadoCita = cita.estado || 'PROGRAMADA'
         const especialidad = cita.especialidad || 'No especificado'
         const motivo = cita.motivo ? ` - ${cita.motivo}` : ''
@@ -281,8 +195,8 @@ export function PatientHistoryView({ patient, onBack }: PatientHistoryViewProps)
         
         eventos.push({
           tipo: 'CITA',
-          fecha: cita.fechaCita,
-          hora: cita.horaCita,
+          fecha: cita.fechaCita, // Ya viene como Date desde el backend
+          hora: cita.horaCita,   // Ahora es String ("07:00")
           icono: icono,
           titulo: `Cita Médica (${estadoTexto})`,
           descripcion: `Especialidad: ${especialidad}${motivo}`,
@@ -463,11 +377,11 @@ export function PatientHistoryView({ patient, onBack }: PatientHistoryViewProps)
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Fecha de Nacimiento:</strong>
-              <span style={{ fontSize: '1rem' }}>{formatearFecha(historiaCompleta?.fechaNacimiento || patient.fechaNacimiento)}</span>
+              <span style={{ fontSize: '1rem' }}>{formatDateLocal(historiaCompleta?.fechaNacimiento || patient.fechaNacimiento)}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Edad:</strong>
-              <span style={{ fontSize: '1rem', fontWeight: '500' }}>{calcularEdad(historiaCompleta?.fechaNacimiento || patient.fechaNacimiento)} años</span>
+              <span style={{ fontSize: '1rem', fontWeight: '500' }}>{calculateAge(historiaCompleta?.fechaNacimiento || patient.fechaNacimiento)} años</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Sexo:</strong>
@@ -636,7 +550,10 @@ export function PatientHistoryView({ patient, onBack }: PatientHistoryViewProps)
                         borderRadius: '1rem',
                         whiteSpace: 'nowrap'
                       }}>
-                        {formatearFecha(evento.fecha)}
+                        {evento.tipo === 'CITA' || evento.tipo === 'ADMISION' || evento.tipo === 'ADMISION_INICIAL' 
+                          ? formatDateLocal(evento.fecha)
+                          : formatDateVenezuela(evento.fecha)
+                        }
                       </span>
                       <span style={{ 
                         fontSize: '0.85rem', 
@@ -648,7 +565,7 @@ export function PatientHistoryView({ patient, onBack }: PatientHistoryViewProps)
                         fontWeight: '600',
                         fontFamily: 'monospace'
                       }}>
-                        🕐 {formatearHora(evento.hora)}
+                        🕐 {formatTimeMilitaryVenezuela(evento.hora)}
                       </span>
                     </div>
                   </div>

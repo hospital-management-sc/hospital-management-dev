@@ -10,7 +10,42 @@ export const VENEZUELA_TIMEZONE = 'America/Los_Angeles'; // Cambiado a zona hora
 export const VENEZUELA_LOCALE = 'es-VE';
 
 /**
+ * Formatea una fecha LOCAL sin conversión de timezone
+ * USAR PARA: fechas en columnas separadas (fechaCita, fechaAdmision, fechaNacimiento)
+ * NO usar con timestamps completos (createdAt, horaAdmision)
+ * @param date - Fecha a formatear (Date, string YYYY-MM-DD)
+ * @returns Fecha formateada como DD/MM/YYYY
+ */
+export function formatDateLocal(
+  date: Date | string
+): string {
+  if (!date) return '-';
+  
+  try {
+    let dateStr: string;
+    
+    if (date instanceof Date) {
+      // Si es Date object, extraer la parte ISO (YYYY-MM-DD) y usar UTC para evitar timezone shift
+      const isoString = date.toISOString();
+      dateStr = isoString.split('T')[0];
+    } else if (typeof date === 'string') {
+      // Si es string, asumimos formato YYYY-MM-DD o ISO
+      dateStr = date.includes('T') ? date.split('T')[0] : date;
+    } else {
+      return '-';
+    }
+    
+    // Parsear y formatear como DD/MM/YYYY
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  } catch {
+    return '-';
+  }
+}
+
+/**
  * Formatea una fecha para mostrar solo la fecha (sin hora)
+ * USAR PARA: timestamps completos que necesitan conversión de timezone (createdAt)
  * @param date - Fecha a formatear (Date, string ISO, o timestamp)
  * @param options - Opciones adicionales de formato
  * @returns Fecha formateada en zona horaria de Venezuela
@@ -75,6 +110,7 @@ export function formatDateTimeVenezuela(
 /**
  * Formatea solo la hora
  * @param date - Fecha a formatear
+ * @param options - Opciones adicionales de formato
  * @returns Hora formateada en zona horaria de Venezuela
  */
 export function formatTimeVenezuela(
@@ -96,6 +132,48 @@ export function formatTimeVenezuela(
     };
     
     return dateObj.toLocaleTimeString(VENEZUELA_LOCALE, defaultOptions);
+  } catch {
+    return '-';
+  }
+}
+
+/**
+ * Formatea hora en formato militar (24 horas) sin AM/PM
+ * @param date - Fecha a formatear o string de hora (HH:MM o HH:MM:SS)
+ * @returns Hora en formato HH:MM (24 horas)
+ */
+export function formatTimeMilitaryVenezuela(
+  date: Date | string | number
+): string {
+  if (!date) return '-';
+  
+  try {
+    // Si es un string de hora simple (HH:MM o HH:MM:SS), devolverlo directamente
+    if (typeof date === 'string') {
+      // Verificar si es formato HH:MM o HH:MM:SS
+      const timeRegex = /^(\d{2}):(\d{2})(:\d{2})?$/;
+      const match = date.match(timeRegex);
+      if (match) {
+        return `${match[1]}:${match[2]}`; // Devolver solo HH:MM
+      }
+    }
+    
+    // Si es Date o ISO string, procesarlo normalmente
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return '-';
+    
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: VENEZUELA_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const parts = formatter.formatToParts(dateObj);
+    const hour = parts.find(p => p.type === 'hour')?.value;
+    const minute = parts.find(p => p.type === 'minute')?.value;
+    
+    return `${hour}:${minute}`;
   } catch {
     return '-';
   }
@@ -192,23 +270,71 @@ export function getCurrentTimeVenezuela(): string {
 }
 
 /**
+ * Convierte una fecha/hora local de Venezuela a string ISO UTC para enviar al backend
+ * IMPORTANTE: Usar esta función al crear/actualizar registros con fecha/hora del formulario
+ * @param dateString - Fecha en formato YYYY-MM-DD
+ * @param timeString - Hora en formato HH:MM (opcional)
+ * @returns String ISO en UTC listo para enviar al backend
+ */
+export function toISOStringFromVenezuela(dateString: string, timeString?: string): string {
+  if (!dateString) return '';
+  
+  try {
+    // Parsear fecha y hora
+    const [year, month, day] = dateString.split('-').map(Number);
+    const [hours, minutes] = timeString ? timeString.split(':').map(Number) : [0, 0];
+    
+    // MÉTODO SIMPLIFICADO:
+    // Crear el string en formato ISO compatible con la zona horaria
+    // America/Los_Angeles es GMT-8, entonces cuando es 07:00 allí, en UTC son las 15:00
+    const offsetHours = 8; // GMT-8 significa +8 horas para convertir a UTC
+    
+    // Calcular la hora UTC
+    let utcHours = hours + offsetHours;
+    let utcDay = day;
+    let utcMonth = month;
+    let utcYear = year;
+    
+    // Manejar overflow de horas (si pasa de 23)
+    if (utcHours >= 24) {
+      utcHours -= 24;
+      utcDay += 1;
+      
+      // Manejar overflow de días
+      const daysInMonth = new Date(utcYear, utcMonth, 0).getDate();
+      if (utcDay > daysInMonth) {
+        utcDay = 1;
+        utcMonth += 1;
+        
+        // Manejar overflow de meses
+        if (utcMonth > 12) {
+          utcMonth = 1;
+          utcYear += 1;
+        }
+      }
+    }
+    
+    // Crear la fecha UTC directamente
+    const utcDate = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay, utcHours, minutes, 0, 0));
+    
+    return utcDate.toISOString();
+  } catch (error) {
+    console.error('Error al convertir fecha/hora a UTC:', error);
+    return '';
+  }
+}
+
+/**
  * Convierte una fecha local de Venezuela a UTC para enviar al servidor
  * Útil cuando el usuario ingresa una fecha/hora en un formulario
  * @param dateString - Fecha en formato YYYY-MM-DD
  * @param timeString - Hora en formato HH:MM (opcional)
  * @returns Fecha como objeto Date en UTC
+ * @deprecated Usar toISOStringFromVenezuela en su lugar
  */
 export function toUTCFromVenezuela(dateString: string, timeString?: string): Date {
-  // Venezuela está en UTC-4
-  const VENEZUELA_OFFSET = -4;
-  
-  const [year, month, day] = dateString.split('-').map(Number);
-  const [hours, minutes] = timeString ? timeString.split(':').map(Number) : [0, 0];
-  
-  // Crear fecha en UTC considerando el offset de Venezuela
-  const utcHours = hours - VENEZUELA_OFFSET;
-  
-  return new Date(Date.UTC(year, month - 1, day, utcHours, minutes, 0, 0));
+  const isoString = toISOStringFromVenezuela(dateString, timeString);
+  return new Date(isoString);
 }
 
 /**
@@ -303,10 +429,12 @@ const dateUtils = {
   formatDateVenezuela,
   formatDateTimeVenezuela,
   formatTimeVenezuela,
+  formatTimeMilitaryVenezuela,
   formatDateLongVenezuela,
   formatDateShortVenezuela,
   getTodayVenezuelaISO,
   getCurrentTimeVenezuela,
+  toISOStringFromVenezuela,
   toUTCFromVenezuela,
   formatRelativeTimeVenezuela,
   calculateAge,

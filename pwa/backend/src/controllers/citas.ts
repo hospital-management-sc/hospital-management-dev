@@ -75,7 +75,7 @@ export const crearCita = async (req: Request, res: Response): Promise<void> => {
         pacienteId: Number(pacienteId),
         medicoId: medicoId ? Number(medicoId) : null,
         fechaCita: new Date(fechaCita), // PostgreSQL Date type
-        horaCita: horaCita ? new Date(`1970-01-01T${horaCita}`) : null, // PostgreSQL Time type
+        horaCita: horaCita || null, // Ahora es String, no necesita conversión
         especialidad,
         motivo: motivo || null,
         notas: notas || null,
@@ -315,7 +315,7 @@ export const actualizarCita = async (req: Request, res: Response): Promise<void>
       where: { id: Number(id) },
       data: {
         ...(fechaCita && { fechaCita: new Date(fechaCita) }),
-        ...(horaCita && { horaCita: new Date(`1970-01-01T${horaCita}:00`) }),
+        ...(horaCita && { horaCita }), // Ahora es String, no necesita conversión
         ...(especialidad && { especialidad }),
         ...(motivo !== undefined && { motivo }),
         ...(estado && { estado }),

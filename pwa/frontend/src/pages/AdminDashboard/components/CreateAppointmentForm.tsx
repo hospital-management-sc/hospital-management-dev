@@ -4,8 +4,9 @@
  */
 
 import { useState, useEffect } from 'react'
+import { SearchableSelect } from '@/components/SearchableSelect'
 import { API_BASE_URL } from '@/utils/constants'
-import { VENEZUELA_TIMEZONE, VENEZUELA_LOCALE } from '@/utils/dateUtils'
+import { getTodayVenezuelaISO, formatDateVenezuela, formatTimeMilitaryVenezuela, formatDateLocal } from '@/utils/dateUtils'
 import styles from '../AdminDashboard.module.css'
 
 interface CreateAppointmentFormProps {
@@ -19,14 +20,21 @@ export function CreateAppointmentForm({ preSelectedPatient }: CreateAppointmentF
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [especialidades, setEspecialidades] = useState<string[]>([
-    'Medicina General',
-    'Cardiología',
-    'Traumatología',
+    'Medicina Interna',
+    'Medicina Paleativa',
+    'Cirugía General',
     'Pediatría',
+    'Neumo Pediatría',
+    'Traumatología',
+    'Cirugía de Manos',
+    'Odontología',
+    'Otorrinolaringología',
+    'Permatología',
+    'Fisiatría',
     'Ginecología',
-    'Cirugía',
-    'Neurología',
-    'Oftalmología',
+    'Gastroenterología',
+    'Ematología',
+    'Psicología'
   ])
   const [citasExistentes, setCitasExistentes] = useState<any[]>([])
 
@@ -77,14 +85,21 @@ export function CreateAppointmentForm({ preSelectedPatient }: CreateAppointmentF
   const cargarEspecialidades = async () => {
     // Siempre usar las especialidades por defecto
     const especialidadesDefecto = [
-      'Medicina General',
-      'Cardiología',
-      'Traumatología',
+      'Medicina Interna',
+      'Medicina Paleativa',
+      'Cirugía General',
       'Pediatría',
+      'Neumo Pediatría',
+      'Traumatología',
+      'Cirugía de Manos',
+      'Odontología',
+      'Otorrinolaringología',
+      'Permatología',
+      'Fisiatría',
       'Ginecología',
-      'Cirugía',
-      'Neurología',
-      'Oftalmología',
+      'Gastroenterología',
+      'Ematología',
+      'Psicología'
     ]
     setEspecialidades(especialidadesDefecto)
   }
@@ -154,15 +169,19 @@ export function CreateAppointmentForm({ preSelectedPatient }: CreateAppointmentF
     setSubmitMessage('')
 
     try {
+      // Con fecha y hora en columnas separadas, NO necesitamos conversión de zona horaria
+      // Enviamos los valores directamente como el usuario los ingresó
       const citaData = {
         pacienteId: selectedPatient.id,
         medicoId: null,
-        fechaCita: appointmentData.fecha,
-        horaCita: appointmentData.hora,
+        fechaCita: appointmentData.fecha, // YYYY-MM-DD
+        horaCita: appointmentData.hora,   // HH:MM
         especialidad: appointmentData.especialidad,
         motivo: appointmentData.motivo || null,
         notas: null,
       }
+
+      console.log('📅 Datos de cita a enviar:', citaData)
 
       const response = await fetch(`${API_BASE_URL}/citas`, {
         method: 'POST',
@@ -337,49 +356,9 @@ export function CreateAppointmentForm({ preSelectedPatient }: CreateAppointmentF
           <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>Citas Programadas</h4>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             {citasExistentes.map((cita: any) => {
-              // Parsear fecha: puede venir en formato ISO (2025-11-29T00:00:00.000Z) o Date
-              let fechaFormato = 'N/A'
-              if (cita.fechaCita) {
-                try {
-                  const fecha = typeof cita.fechaCita === 'string' 
-                    ? new Date(cita.fechaCita)
-                    : cita.fechaCita
-                  
-                  if (!isNaN(fecha.getTime())) {
-                    fechaFormato = fecha.toLocaleDateString(VENEZUELA_LOCALE, { timeZone: VENEZUELA_TIMEZONE })
-                  }
-                } catch (e) {
-                  fechaFormato = 'N/A'
-                }
-              }
-              
-              // Parsear hora: puede venir en formato ISO (1970-01-01T14:30:00.000Z) o string
-              let horaFormato = 'N/A'
-              if (cita.horaCita) {
-                try {
-                  // Si es ISO string (1970-01-01T14:30:00.000Z), extraer HH:MM
-                  if (typeof cita.horaCita === 'string') {
-                    if (cita.horaCita.includes('T')) {
-                      // Formato ISO DateTime
-                      const horaMatch = cita.horaCita.match(/T(\d{2}):(\d{2})/)
-                      if (horaMatch) {
-                        horaFormato = `${horaMatch[1]}:${horaMatch[2]}`
-                      }
-                    } else if (cita.horaCita.includes(':')) {
-                      // Formato HH:MM:SS o HH:MM
-                      const partes = cita.horaCita.split(':')
-                      horaFormato = `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}`
-                    }
-                  } else if (cita.horaCita instanceof Date) {
-                    // Si es un Date object
-                    const horas = String(cita.horaCita.getHours()).padStart(2, '0')
-                    const minutos = String(cita.horaCita.getMinutes()).padStart(2, '0')
-                    horaFormato = `${horas}:${minutos}`
-                  }
-                } catch (e) {
-                  horaFormato = 'N/A'
-                }
-              }
+              // Usar funciones de dateUtils alineadas con test-timezone.ts
+              const fechaFormato = formatDateLocal(cita.fechaCita)
+              const horaFormato = formatTimeMilitaryVenezuela(cita.horaCita)
               
               return (
                 <div key={cita.id} style={{ padding: '0.75rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.375rem', fontSize: '0.9rem' }}>
@@ -407,7 +386,7 @@ export function CreateAppointmentForm({ preSelectedPatient }: CreateAppointmentF
                   setAppointmentData({...appointmentData, fecha: e.target.value})
                   setErrors({...errors, fecha: ''})
                 }}
-                min={new Date().toISOString().split('T')[0]}
+                min={getTodayVenezuelaISO()}
               />
               {errors.fecha && <span className={styles["error-message"]}>{errors.fecha}</span>}
             </div>
@@ -428,19 +407,15 @@ export function CreateAppointmentForm({ preSelectedPatient }: CreateAppointmentF
 
             <div className={styles["form-group"]}>
               <label>Especialidad * (Total: {especialidades.length})</label>
-              <select
-                required
+              <SearchableSelect
+                options={especialidades}
                 value={appointmentData.especialidad}
-                onChange={(e) => {
-                  setAppointmentData({...appointmentData, especialidad: e.target.value})
+                onChange={(value) => {
+                  setAppointmentData({...appointmentData, especialidad: value})
                   setErrors({...errors, especialidad: ''})
                 }}
-              >
-                <option value="">Seleccione especialidad...</option>
-                {especialidades.map(esp => (
-                  <option key={esp} value={esp}>{esp}</option>
-                ))}
-              </select>
+                placeholder="Seleccione especialidad..."
+              />
               {errors.especialidad && <span className={styles["error-message"]}>{errors.especialidad}</span>}
             </div>
 
