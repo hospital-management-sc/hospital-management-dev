@@ -8,6 +8,7 @@ import TodayEncounters from "./TodayEncounters";
 import MyAppointments from "./MyAppointments";
 import Interconsultas from "./Interconsultas";
 import InterconsultaModal from "./InterconsultaModal";
+import FormatoHospitalizacion from "./FormatoHospitalizacion";
 
 export {
   DashboardStats,
@@ -20,4 +21,5 @@ export {
   MyAppointments,
   Interconsultas,
   InterconsultaModal,
+  FormatoHospitalizacion,
 };

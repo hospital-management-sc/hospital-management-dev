@@ -9,6 +9,7 @@ import DoctorDashboard from "@pages/DoctorDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import SuperAdminDashboard from "@pages/SuperAdminDashboard";
 import ProtectedRoute from "@components/ProtectedRoute";
+import FormatoHospitalizacion from "@/pages/DoctorDashboard/components/FormatoHospitalizacion";
 
 export default function Router() {
   const { user, loading } = useAuth();
@@ -80,6 +81,26 @@ export default function Router() {
           {/* Dashboard Médico - Para MEDICO */}
           <Route
             path="/dashboard/medico"
+            element={
+              <ProtectedRoute allowedRoles={["MEDICO"]}>
+                <DoctorDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Formato de Hospitalización - Para MEDICO */}
+          <Route
+            path="/doctor/paciente/:admisionId/formato"
+            element={
+              <ProtectedRoute allowedRoles={["MEDICO"]}>
+                <FormatoHospitalizacion />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Ruta corta de acceso directo a pacientes hospitalizados */}
+          <Route
+            path="/doctor/pacientes-hospitalizados"
             element={
               <ProtectedRoute allowedRoles={["MEDICO"]}>
                 <DoctorDashboard />

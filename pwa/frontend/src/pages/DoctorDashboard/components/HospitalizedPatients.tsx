@@ -3,6 +3,7 @@
 // ==========================================
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styles from "../DoctorDashboard.module.css";
 import admisionesService, {
   type Admision,
@@ -13,6 +14,7 @@ import { SERVICIOS } from "@/constants";
 interface Props {}
 
 export default function HospitalizedPatientsView({}: Props) {
+  const navigate = useNavigate();
   const [admisiones, setAdmisiones] = useState<Admision[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -163,7 +165,8 @@ export default function HospitalizedPatientsView({}: Props) {
               <div className={styles["card-actions"]}>
                 <button
                   className={styles["action-btn-primary"]}
-                  onClick={() => alert("Próximamente: Registrar Evolución")}
+                  onClick={() => navigate(`/doctor/paciente/${admision.id}/formato`)}
+                  title="Ir al Formato de Hospitalización"
                 >
                   📝 Evolución
                 </button>
